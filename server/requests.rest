@@ -1,7 +1,9 @@
-POST http://localhost:3000/signin 
+//nơi dùng để gửi yêu cầu tới server theo định dạng json
+POST http://localhost:3000/signup
 Content-Type: application/json
 
 {
-    "email": "kunaa@gmail.com",
-    "password": "Kunaal"
+    "fullname":"lyngocan",
+    "email":"lyngocan2222@gmail.com",
+    "password":"Qwe97001@"
 }
