@@ -3,6 +3,7 @@ import Navbar from "./components/navbar.component";
 import UserAuthForm from "./pages/userAuthForm.page";
 import { createContext, useState, useEffect } from "react";
 import { lookInSession } from "./common/session";
+import Editor from "./pages/editor.pages";
 
 
 // chủ yếu để quản lí trạng thái xem người dùng có đăng nhập hay chưa
@@ -28,6 +29,8 @@ const App = () => {
     // 🔹 Dùng Context Provider để truyền dữ liệu user cho toàn ứng dụng
     <UserContext.Provider value={{ userAuth, setUserAuth }}>
       <Routes>
+        {/* trang soạn thảo */}
+        <Route path="/editor" element={<Editor/>}/>
         {/* 🔹 Navbar là layout cha (chứa phần chung của trang) */}
         <Route path="/" element={<Navbar />}>
           {/* Trang đăng nhập */}
