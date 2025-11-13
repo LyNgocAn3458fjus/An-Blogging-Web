@@ -11,7 +11,8 @@ import admin from "firebase-admin";             // Firebase Admin
 import { createRequire } from "module";         // Dùng require() trong ESM
 const requireCJS = createRequire(import.meta.url);
 const serviceAccountKey = requireCJS("./react-js-blog-website-946b4-firebase-adminsdk-fbsvc-127884941c.json");
-import { getAuth } from "firebase-admin/auth";  // Xác thực token Google
+import { getAuth } from "firebase-admin/auth";  // Xác thực token Google 
+import aws from "aws-sdk"
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -37,6 +38,14 @@ mongoose.connect(process.env.DB_LOCATION, { autoIndex: true })
         console.error('Error connecting to MongoDB:', err);
         process.exit(1); // Dừng server nếu không kết nối được DB
     });
+//setting up backblaze similiar with S3 bucket
+const s3 = new aws.S3({
+  endpoint: process.env.B2_ENDPOINT, // B2 S3 endpoint
+  accessKeyId: process.env.AWS_ACCESS_KEY, // keyID,access_key
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // appKey , secret_access_key
+  signatureVersion: 'v4',
+  region: process.env.AWS_REGION
+});
 
 // ========================== HÀM TIỆN ÍCH ========================== //
 // Format dữ liệu trả về cho client (chỉ cần thiết)
