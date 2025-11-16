@@ -1,14 +1,23 @@
 import { Link } from "react-router-dom";
 import logo from "../imgs/logo.png";
 import AnimationWrapper from "../common/page-animation";
-import work from "../imgs/work.jpg";
+import defaultBanner from "../imgs/blog banner.png";
+import { useRef } from "react";
+import { uploadImage } from "../common/aws";
 
 // Component BlogEditor: viết/soạn thảo bài blog
 const BlogEditor = () => {
+  let blogBannerRef = useRef();
   // Xử lý khi người dùng chọn ảnh banner
   const handleBannerUpload = (e) => {
-    const img = e.target.files[0];
-    console.log(img); // log file để kiểm tra
+    let img = e.target.files[0];//lục mục đều tiên trong list file có thể làm name
+    if(img){
+      uploadImage(img).then((url)=>{
+        if(url){
+            blogBannerRef.current.src = url
+        }
+      })
+    }
   };
 
   return (
@@ -39,7 +48,8 @@ const BlogEditor = () => {
               {/* Label dùng để click vào ảnh và trigger input file */}
               <label htmlFor="uploadBanner" className="w-full h-full block">
                 <img
-                  src={work}
+                ref={blogBannerRef}
+                  src={defaultBanner}
                   className="z-20 w-full h-full object-cover"
                   alt="Banner preview"
                 />

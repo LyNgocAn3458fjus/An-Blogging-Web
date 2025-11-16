@@ -40,19 +40,31 @@ mongoose.connect(process.env.DB_LOCATION, { autoIndex: true })
     });
 //setting up backblaze similiar with S3 bucket
 const s3 = new aws.S3({
-  endpoint: process.env.B2_ENDPOINT, // B2 S3 endpoint
-  accessKeyId: process.env.AWS_ACCESS_KEY, // keyID,access_key
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // appKey , secret_access_key
-  signatureVersion: 'v4',
-  region: process.env.AWS_REGION
+    endpoint: process.env.B2_ENDPOINT, // B2 S3 endpoint
+    accessKeyId: process.env.AWS_ACCESS_KEY, // keyID,access_key
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // appKey , secret_access_key
+    signatureVersion: 'v4',
+    region: process.env.AWS_REGION
 });
+
+// Sinh URL tạm thời để upload file lên Backblaze B2 (S3 Compatible)
+const generateUploadURL = async () => {
+    const date = new Date();
+    const imageName = `${nanoid()}-${date.getTime()}.jpeg`; // tạo tên file duy nhất
+    return await s3.getSignedUrlPromise('putObject', {   // tạo signed URL upload
+        Bucket: process.env.BUCKET_NAME,                // bucket lưu file
+        Key: imageName,                                  // tên file
+        Expires: 1000,                                   // thời gian hiệu lực URL (giây)
+        ContentType: 'image/jpeg'                        // định dạng file
+    });
+}
 
 // ========================== HÀM TIỆN ÍCH ========================== //
 // Format dữ liệu trả về cho client (chỉ cần thiết)
 const formatDatatoSend = (user) => {
     const access_token = jwt.sign(
         { id: user._id },
-        process.env.SECRET_ACCECSS_KEY,
+        process.env.SECRET_ACCESS_KEY,
         { expiresIn: '1h' }
     );
 
@@ -75,7 +87,19 @@ const generateUsername = async (email) => {
 };
 
 // ========================== ROUTES ========================== //
-// 1️⃣ Đăng ký tài khoản
+
+//upload img url route
+server.get('/get-upload-url', async (req, res) => {
+    try {
+        const url = await generateUploadURL();
+        res.status(200).json({ uploadURL: url });
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 1️⃣ Đăng ký tài khoả
 server.post("/signup", async (req, res) => {
     const { fullname, email, password } = req.body;
 
