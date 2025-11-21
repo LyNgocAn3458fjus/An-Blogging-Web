@@ -1,18 +1,18 @@
 // ========================== IMPORT THƯ VIỆN ========================== //
-import express from 'express';                  // Framework tạo web server
-import mongoose from 'mongoose';                // Kết nối & thao tác với MongoDB
-import 'dotenv/config';                         // Đọc biến môi trường từ file .env
-import bcrypt from 'bcrypt';                    // Mã hóa mật khẩu
-import User from './Schema/User.js';            // Schema User
-import { nanoid } from 'nanoid';                // Tạo chuỗi ID ngẫu nhiên
-import jwt from 'jsonwebtoken';                 // Tạo JWT token
-import cors from 'cors';                        // Cho phép CORS (cross-origin)
+import express from 'express';                  // framework server
+import mongoose from 'mongoose';                // MongoDB ODM
+import 'dotenv/config';                         // load .env
+import bcrypt from 'bcrypt';                    // hash password
+import User from './Schema/User.js';            // model User
+import { nanoid } from 'nanoid';                // tạo string ngẫu nhiên
+import jwt from 'jsonwebtoken';                 // tạo token
+import cors from 'cors';                        // enable CORS
 import admin from "firebase-admin";             // Firebase Admin
-import { createRequire } from "module";         // Dùng require() trong ESM
+import { createRequire } from "module";         // để dùng require với ES Module
 const requireCJS = createRequire(import.meta.url);
 const serviceAccountKey = requireCJS("./react-js-blog-website-946b4-firebase-adminsdk-fbsvc-127884941c.json");
-import { getAuth } from "firebase-admin/auth";  // Xác thực token Google 
-import aws from "aws-sdk"
+import { getAuth } from "firebase-admin/auth";  
+import { v2 as cloudinary } from 'cloudinary';
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -27,7 +27,7 @@ admin.initializeApp({
 const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
 const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
 
-// Middleware: cho phép server đọc JSON và xử lý CORS
+// Middleware
 server.use(express.json());
 server.use(cors());
 
@@ -36,31 +36,18 @@ mongoose.connect(process.env.DB_LOCATION, { autoIndex: true })
     .then(() => console.log('Connected to MongoDB'))
     .catch(err => {
         console.error('Error connecting to MongoDB:', err);
-        process.exit(1); // Dừng server nếu không kết nối được DB
+        process.exit(1);
     });
-//setting up backblaze similiar with S3 bucket
-const s3 = new aws.S3({
-    endpoint: process.env.B2_ENDPOINT, // B2 S3 endpoint
-    accessKeyId: process.env.AWS_ACCESS_KEY, // keyID,access_key
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY, // appKey , secret_access_key
-    signatureVersion: 'v4',
-    region: process.env.AWS_REGION
+
+// ========================== CẤU HÌNH CLOUDINARY ========================== //
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Sinh URL tạm thời để upload file lên Backblaze B2 (S3 Compatible)
-const generateUploadURL = async () => {
-    const date = new Date();
-    const imageName = `${nanoid()}-${date.getTime()}.jpeg`; // tạo tên file duy nhất
-    return await s3.getSignedUrlPromise('putObject', {   // tạo signed URL upload
-        Bucket: process.env.BUCKET_NAME,                // bucket lưu file
-        Key: imageName,                                  // tên file
-        Expires: 1000,                                   // thời gian hiệu lực URL (giây)
-        ContentType: 'image/jpeg'                        // định dạng file
-    });
-}
-
 // ========================== HÀM TIỆN ÍCH ========================== //
-// Format dữ liệu trả về cho client (chỉ cần thiết)
+// Tạo token và trả data cơ bản cho frontend
 const formatDatatoSend = (user) => {
     const access_token = jwt.sign(
         { id: user._id },
@@ -76,51 +63,30 @@ const formatDatatoSend = (user) => {
     };
 };
 
-// Tạo username từ email, đảm bảo không trùng
+// Tạo username từ email, nếu trùng thì thêm 5 ký tự ngẫu nhiên
 const generateUsername = async (email) => {
-    let username = email.split("@")[0]; // Lấy phần trước @
+    let username = email.split("@")[0];
     const exists = await User.exists({ "personal_info.username": username });
-    if (exists) {
-        username += nanoid().substring(0, 5); // Thêm 5 ký tự ngẫu nhiên nếu trùng
-    }
+    if (exists) username += nanoid().substring(0, 5);
     return username;
 };
 
 // ========================== ROUTES ========================== //
 
-//upload img url route
-server.get('/get-upload-url', async (req, res) => {
-    try {
-        const url = await generateUploadURL();
-        res.status(200).json({ uploadURL: url });
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// 1️⃣ Đăng ký tài khoả
+// 1️⃣ Signup
 server.post("/signup", async (req, res) => {
     const { fullname, email, password } = req.body;
 
-    if (!fullname || fullname.length < 3) {
-        return res.status(400).json({ error: "Full name must be at least 3 letters long" });
-    }
-    if (!email || !emailRegex.test(email)) {
-        return res.status(400).json({ error: "Invalid email" });
-    }
-    if (!password || !passwordRegex.test(password)) {
-        return res.status(400).json({
-            error: "Password must be 6-20 chars, include 1 uppercase, 1 lowercase, 1 number"
-        });
-    }
+    if (!fullname || fullname.length < 3) return res.status(400).json({ error: "Full name must be at least 3 letters long" });
+    if (!email || !emailRegex.test(email)) return res.status(400).json({ error: "Invalid email" });
+    if (!password || !passwordRegex.test(password)) return res.status(400).json({
+        error: "Password must be 6-20 chars, include 1 uppercase, 1 lowercase, 1 number"
+    });
 
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const username = await generateUsername(email);
-        const user = new User({
-            personal_info: { fullname, email, password: hashedPassword, username }
-        });
+        const user = new User({ personal_info: { fullname, email, password: hashedPassword, username } });
         await user.save();
         return res.status(200).json(formatDatatoSend(user));
     } catch (err) {
@@ -129,7 +95,7 @@ server.post("/signup", async (req, res) => {
     }
 });
 
-// 2️⃣ Đăng nhập
+// 2️⃣ Signin
 server.post("/signin", async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -145,7 +111,7 @@ server.post("/signin", async (req, res) => {
     }
 });
 
-// 3️⃣ Google Authentication
+// 3️⃣ Google Auth
 server.post("/google-auth", async (req, res) => {
     try {
         const { access_token } = req.body;
@@ -156,26 +122,68 @@ server.post("/google-auth", async (req, res) => {
         let user = await User.findOne({ "personal_info.email": email });
 
         if (user) {
-            if (!user.google_auth) {
-                return res.status(403).json({
-                    error: "This email was signed up without Google. Please log in with password."
-                });
-            }
+            if (!user.google_auth) return res.status(403).json({ error: "This email was signed up without Google. Please log in with password." });
         } else {
             const username = await generateUsername(email);
-            user = new User({
-                personal_info: { fullname: name, email, username, profile_img },
-                google_auth: true
-            });
+            user = new User({ personal_info: { fullname: name, email, username, profile_img }, google_auth: true });
             await user.save();
         }
 
         return res.status(200).json(formatDatatoSend(user));
     } catch (err) {
         console.error(err);
-        return res.status(500).json({
-            error: "Failed to authenticate with Google. Try another account."
-        });
+        return res.status(500).json({ error: "Failed to authenticate with Google. Try another account." });
+    }
+});
+
+// ========================== GENERATE UPLOAD URL (Cloudinary) ========================== //
+const generateUploadURL = async () => {
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = "banner_images";
+    const upload_preset = "banner_upload";
+
+    // Tạo chữ ký upload có thể dùng frontend
+    const signature = cloudinary.utils.api_sign_request(
+        { folder, timestamp, upload_preset },
+        process.env.CLOUDINARY_API_SECRET
+    );
+
+    return {
+        cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+        apiKey: process.env.CLOUDINARY_API_KEY,
+        folder,
+        timestamp,
+        signature,
+        upload_preset
+    };
+};
+
+// Lấy upload config cho frontend
+server.get('/get-upload-url', async (req, res) => {
+    try {
+        const uploadConfig = await generateUploadURL();
+        res.status(200).json({ uploadConfig });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5️⃣ Update banner URL
+server.post('/update-banner', async (req, res) => {
+    const { userId, bannerUrl } = req.body;
+    if (!userId || !bannerUrl) return res.status(400).json({ error: 'Missing info' });
+
+    try {
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        user.personal_info.banner_img = bannerUrl;
+        await user.save();
+
+        return res.status(200).json({ bannerUrl });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
     }
 });
 

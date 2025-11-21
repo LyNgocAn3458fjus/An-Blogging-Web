@@ -10,15 +10,15 @@ const BlogEditor = () => {
   let blogBannerRef = useRef();
   // Xử lý khi người dùng chọn ảnh banner
   const handleBannerUpload = (e) => {
-    let img = e.target.files[0];//lục mục đều tiên trong list file có thể làm name
-    if(img){
-      uploadImage(img).then((url)=>{
-        if(url){
-            blogBannerRef.current.src = url
-        }
-      })
-    }
-  };
+  let img = e.target.files[0];
+  if(img){
+    uploadImage(img).then((url)=>{
+      if(url){
+        blogBannerRef.current.src = url;
+      }
+    })
+  }
+};
 
   return (
     <>
