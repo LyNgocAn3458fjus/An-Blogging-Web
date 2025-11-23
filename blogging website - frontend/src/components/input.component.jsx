@@ -1,27 +1,45 @@
 import { useState } from "react";
 
 const InputBox = ({ name, type, placeholder, defaultValue, id, icon }) => {
+  const [passWordVisible, setPassWordVisible] = useState(false);
 
-    const [passWordVisible, setPassWordVisible] = useState(false);// dùng useState để quản lí trạng thái ẩn hiện
+  return (
+    <div className="relative w-full mb-4">
+      {/* Input */}
+      <input
+        name={name}
+        type={type === "password" ? (passWordVisible ? "text" : "password") : type}
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        id={id}
+        className="
+          w-full
+          py-3
+          pl-12
+          pr-12
+          rounded-xl
+          border border-gray-300
+          bg-gray-50/80 backdrop-blur-sm
+          placeholder-gray-400
+          focus:outline-none focus:ring-2 focus:ring-black/20
+          transition
+        "
+      />
 
-    return (
-        <div className="relative w-[100%] mb-4">
-            <input
-                name={name}
-                // nếu type là kiểu mật khẩu thì kiểm tra passWordVisible đúng thì là text còn sai thì là password, nếu ngày từ đầu không phải password thì dùng type gốc phái cuối
-                type={type =="password" ? passWordVisible ? "text" : "password" : type}
-                placeholder={placeholder}
-                defaultValue={defaultValue}
-                id={id}
-                className="input-box"
-            />
-            <i className={"fi " + icon + " input-icon"}></i>
-            {
-                // !passWordVisible tức đang ở trạng thái true(mật khẩu đang bị ẩn) thì là icon ẩn còn không thì nó là icon hiện
-                type == "password" ? <i className={"fi fi-rr-eye" +(!passWordVisible ? "-crossed":"" )+" input-icon left-[auto] right-4 cursor-pointer"} onClick={()=> setPassWordVisible(currentVal => !currentVal )}></i> : ""
-            }
-        </div>
-    )
+      {/* Left icon */}
+      {icon && (
+        <i className={`fi ${icon} absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none`}></i>
+      )}
 
-}
+      {/* Password toggle icon */}
+      {type === "password" && (
+        <i
+          className={`fi fi-rr-eye${!passWordVisible ? "-crossed" : ""} absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 cursor-pointer hover:text-black transition`}
+          onClick={() => setPassWordVisible((current) => !current)}
+        ></i>
+      )}
+    </div>
+  );
+};
+
 export default InputBox;

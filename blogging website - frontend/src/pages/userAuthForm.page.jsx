@@ -1,4 +1,3 @@
-// ========================== IMPORT THƯ VIỆN ========================== //
 import { useContext, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import InputBox from "../components/input.component";
@@ -9,94 +8,83 @@ import axios from "axios";
 import { storeInSession } from "../common/session";
 import { UserContext } from "../App";
 import { authWithGoogle } from "../common/firebase";
-// ========================== COMPONENT CHÍNH ========================== //
-const UserAuthForm = ({ type }) => {
-  const authForm = useRef(); // Tham chiếu đến form trong DOM
-  const { userAuth: { access_token }, setUserAuth } = useContext(UserContext); // Lấy userAuth và hàm cập nhật
-  console.log(access_token);
 
-  // ===== GỬI DỮ LIỆU ĐĂNG NHẬP / ĐĂNG KÝ LÊN SERVER ===== //
+const UserAuthForm = ({ type }) => {
+  const authForm = useRef();
+  const {
+    userAuth: { access_token },
+    setUserAuth,
+  } = useContext(UserContext);
+
   const userAuthThroughServer = (serverRoute, formData) => {
     axios
       .post(import.meta.env.VITE_SERVER_DOMAIN + serverRoute, formData)
       .then(({ data }) => {
-        storeInSession("user", JSON.stringify(data)); // Lưu user vào session
-        setUserAuth(data); // Cập nhật context để app biết user đã đăng nhập
+        storeInSession("user", JSON.stringify(data));
+        setUserAuth(data);
       })
       .catch(({ response }) => {
-        toast.error(response.data.error); // Hiển thị lỗi nếu có
+        toast.error(response.data.error);
       });
   };
 
-  // ===== XỬ LÝ SỰ KIỆN SUBMIT FORM ===== //
   const handleSubmit = (e) => {
-    e.preventDefault(); // Ngăn reload trang
-
-    // Chọn đường dẫn API theo loại form
+    e.preventDefault();
     const serverRoute = type === "sign-in" ? "/signin" : "/signup";
 
-    // Biểu thức regex kiểm tra email và mật khẩu
     const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
     const passwordRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{6,20}$/;
 
-    // Lấy dữ liệu từ form DOM
     const form = new FormData(authForm.current);
     const formData = {};
     for (let [key, value] of form.entries()) formData[key] = value;
 
-    // Kiểm tra dữ liệu nhập vào
     const { fullname, email, password } = formData;
 
     if (fullname && fullname.length < 3)
       return toast.error("Full name must be at least 3 letters long");
-
-    if (!email || !email.length) return toast.error("Enter email");
-
+    if (!email) return toast.error("Enter email");
     if (!emailRegex.test(email)) return toast.error("Email is invalid");
-
     if (!passwordRegex.test(password))
       return toast.error(
-        "Password should be 6-20 characters long with at least 1 number, 1 lowercase, and 1 uppercase letter"
+        "Password must be 6-20 chars, include uppercase, lowercase & number"
       );
 
-    // Gửi dữ liệu hợp lệ lên server
     userAuthThroughServer(serverRoute, formData);
   };
 
+  const handleGoogleAuth = (e) => {
+    e.preventDefault();
+    authWithGoogle()
+      .then((user) => {
+        let serviceRoute = "/google-auth";
+        let formData = {
+          access_token: user.accesstoken,
+        };
+        userAuthThroughServer(serviceRoute, formData);
+      })
+      .catch((err) => {
+        toast.error("Trouble logging in through Google");
+        console.log(err);
+      });
+  };
 
-  //Tạo chức năng xử lí handGoogleAuth
-  const handleGoogleAuth =(e) =>{
-    e.preventDefault();// chặn load lại trang
-    authWithGoogle().then(user =>{
-      let serviceRoute = "/google-auth";
-      let formData = {
-        access_token:user.accesstoken
-      }
-      userAuthThroughServer(serviceRoute, formData)
-
-
-    }).catch(err =>{
-      toast.error('trouble login through google')
-      console.log(err)        
-    })
-  }
-  // Nếu đã đăng nhập → chuyển hướng về trang chủ
   if (access_token) return <Navigate to="/" />;
 
-  // ===== GIAO DIỆN FORM ===== //
   return (
     <AnimationWrapper keyValue={type}>
-      <section className="h-cover flex items-center justify-center">
-        <Toaster /> {/* Hiển thị thông báo */}
+      <section className="h-cover flex items-center justify-center bg-gradient-to-br from-white to-gray-100">
+        <Toaster />
 
-        <form ref={authForm} id="formElement" className="w-[80%] max-w-[400px]">
-          <h1 className="text-4xl font-gelasio capitalize text-center mb-4">
-            {type === "sign-in"
-              ? "Hello, welcome to us"
-              : "Come and join us"}
+        <form
+          ref={authForm}
+          id="formElement"
+          className="w-[80%] max-w-[420px] p-8 rounded-xl bg-white/70 backdrop-blur-lg shadow-lg border border-gray-200 animate-fadeIn"
+        >
+          <h1 className="text-4xl font-gelasio tracking-wide text-center mb-6 text-gray-900">
+            {type === "sign-in" ? "Hello, welcome back" : "Join our community"}
           </h1>
 
-          {/* Nếu là đăng ký thì hiển thị ô nhập fullname */}
           {type !== "sign-in" && (
             <InputBox
               name="fullname"
@@ -106,7 +94,6 @@ const UserAuthForm = ({ type }) => {
             />
           )}
 
-          {/* Email */}
           <InputBox
             name="email"
             type="email"
@@ -114,7 +101,6 @@ const UserAuthForm = ({ type }) => {
             icon="fi-rr-envelope"
           />
 
-          {/* Password */}
           <InputBox
             name="password"
             type="password"
@@ -122,47 +108,40 @@ const UserAuthForm = ({ type }) => {
             icon="fi-rr-key"
           />
 
-          {/* Nút Submit */}
           <button
-            className="btn-dark center mt-14"
+            className="w-full py-3 bg-black text-white rounded-lg mt-10 text-lg tracking-wide hover:bg-gray-900 transition shadow-md"
             type="submit"
             onClick={handleSubmit}
           >
             {type.replace("-", " ")}
           </button>
 
-          {/* Dòng phân cách */}
-          <div className="relative w-full flex items-center gap-2 my-10 opacity-10 uppercase text-black font-bold">
-            <hr className="w-1/2 border-black" />
+          <div className="relative flex items-center gap-2 my-8 text-gray-400 text-sm font-semibold uppercase">
+            <hr className="w-1/2 border-gray-300" />
             <p>or</p>
-            <hr className="w-1/2 border-black" />
+            <hr className="w-1/2 border-gray-300" />
           </div>
 
-          {/* Nút đăng nhập bằng Google */}
-          <button className="btn-dark flex items-center justify-center gap-4 w-[90%] center" onClick={handleGoogleAuth}>
-            <img src={googleIcon} className="w-5" alt="Google" />
+          <button
+            className="w-full flex items-center justify-center gap-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-100 transition shadow-sm"
+            onClick={handleGoogleAuth}
+          >
+            <img src={googleIcon} className="w-5" />
             Continue with Google
           </button>
 
-          {/* Link chuyển trang đăng nhập / đăng ký */}
           {type === "sign-in" ? (
-            <p className="mt-4 text-xl text-center">
-              Don’t you have an account?
-              <Link
-                to="/signup"
-                className="underline ml-1 text-xl text-dark-grey"
-              >
-                Join us today
+            <p className="mt-6 text-center text-gray-700">
+              Don’t have an account?
+              <Link to="/signup" className="underline ml-1 text-black">
+                Join us
               </Link>
             </p>
           ) : (
-            <p className="mt-4 text-xl text-center">
+            <p className="mt-6 text-center text-gray-700">
               Already a member?
-              <Link
-                to="/signin"
-                className="underline ml-1 text-xl text-dark-grey"
-              >
-                Sign in here
+              <Link to="/signin" className="underline ml-1 text-black">
+                Sign in
               </Link>
             </p>
           )}
@@ -172,5 +151,4 @@ const UserAuthForm = ({ type }) => {
   );
 };
 
-// ========================== EXPORT COMPONENT ========================== //
 export default UserAuthForm;

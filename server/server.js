@@ -168,7 +168,6 @@ server.get('/get-upload-url', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-
 // 5️⃣ Update banner URL
 server.post('/update-banner', async (req, res) => {
     const { userId, bannerUrl } = req.body;
