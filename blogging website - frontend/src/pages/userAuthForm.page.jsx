@@ -11,10 +11,19 @@ import { authWithGoogle } from "../common/firebase";
 
 const UserAuthForm = ({ type }) => {
   const authForm = useRef();
-  const {
-    userAuth: { access_token },
-    setUserAuth,
-  } = useContext(UserContext);
+  // const {
+  //   userAuth: { access_token },
+  //   setUserAuth,
+  // } = useContext(UserContext);
+  //được thay thế bằng bản an toàn hơn
+
+
+  const context = useContext(UserContext) || {};
+  const access_token = context.userAuth?.access_token ?? null;
+  const setUserAuth = context.setUserAuth ?? (() => { });
+
+
+
 
   const userAuthThroughServer = (serverRoute, formData) => {
     axios

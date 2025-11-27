@@ -1,37 +1,58 @@
+// src/common/imageUploader.js
 import axios from "axios";
 
-export const uploadImage = async (img) => {
-    let imgUrl = null;
+// Nén ảnh
+export const compressImage = (file) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (e) => {
+            const img = new Image();
+            img.src = e.target.result;
+            img.onload = () => {
+                const canvas = document.createElement("canvas");
+                const ctx = canvas.getContext("2d");
+                const maxWidth = 1024;
+                let scale = img.width > maxWidth ? maxWidth / img.width : 1;
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, { type: "image/jpeg" }));
+                }, "image/jpeg", 0.7);
+            };
+        };
+    });
+};
+
+// Upload ảnh lên Cloudinary
+export const uploadImage = async (file) => {
     try {
-        // Lấy cấu hình upload từ backend (folder, timestamp, signature, cloudName, ...)
-        const { data: { uploadConfig } } = await axios.get(import.meta.env.VITE_SERVER_DOMAIN + "/get-upload-url");
+        const compressedFile = await compressImage(file);
+        const { data: { uploadConfig } } = await axios.get(`${import.meta.env.VITE_SERVER_DOMAIN}/get-upload-url`);
 
-        // Tạo formData để gửi file lên Cloudinary
         const formData = new FormData();
-        formData.append('file', img);               // file hình
-        formData.append('folder', uploadConfig.folder);        // thư mục lưu trên Cloudinary
-        formData.append('timestamp', uploadConfig.timestamp);  // thời gian ký upload
-        formData.append('signature', uploadConfig.signature);  // chữ ký bảo mật
-        formData.append('api_key', uploadConfig.apiKey);       // API key (có thể dư nếu dùng signed upload)
-        formData.append('upload_preset', uploadConfig.upload_preset); // chỉ cần với unsigned upload
+        formData.append("file", compressedFile);
+        formData.append("folder", uploadConfig.folder);
+        formData.append("timestamp", uploadConfig.timestamp);
+        formData.append("signature", uploadConfig.signature);
+        formData.append("api_key", uploadConfig.apiKey);
+        formData.append("upload_preset", uploadConfig.upload_preset);
 
-        const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${uploadConfig.cloudName}/image/upload`;
+        const res = await axios.post(`https://api.cloudinary.com/v1_1/${uploadConfig.cloudName}/image/upload`, formData);
 
-        // Upload file lên Cloudinary
-        const res = await axios.post(cloudinaryUrl, formData);
-        imgUrl = res.data.secure_url; // URL hình sau khi upload
-
-        // Nếu có userId, gửi URL banner lên backend
+        // Update banner backend nếu có userId
         const userId = localStorage.getItem("userId");
-        if(userId){
-            await axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/update-banner", {
+        if (userId) {
+            await axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/update-banner`, {
                 userId,
-                bannerUrl: imgUrl
+                bannerUrl: res.data.secure_url
             });
         }
 
+        return res.data.secure_url;
     } catch (err) {
-        console.error("Upload failed:", err); // log lỗi nếu upload thất bại
+        console.error("Upload failed:", err);
+        return null;
     }
-    return imgUrl; // trả về URL hình hoặc null nếu thất bại
 };
