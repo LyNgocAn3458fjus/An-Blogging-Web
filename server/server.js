@@ -11,8 +11,11 @@ import admin from "firebase-admin";             // Firebase Admin
 import { createRequire } from "module";         // để dùng require với ES Module
 const requireCJS = createRequire(import.meta.url);
 const serviceAccountKey = requireCJS("./react-js-blog-website-946b4-firebase-adminsdk-fbsvc-127884941c.json");
-import { getAuth } from "firebase-admin/auth";  
+import { getAuth } from "firebase-admin/auth";
 import { v2 as cloudinary } from 'cloudinary';
+import { verify } from 'crypto';
+import { timeLog } from 'console';
+import Blog from './Schema/Blog.js'
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -70,6 +73,23 @@ const generateUsername = async (email) => {
     if (exists) username += nanoid().substring(0, 5);
     return username;
 };
+
+//kiểm tra token của client chỉ cho phép những yêu cầu hợp lệ 
+const verifyJWT = (req, res, next) => {
+    const authHeader = req.headers['authorization'];// lấy toàn bộ chuỗi trong authorization là một phần trong headers(tức xác thực)
+    const token = authHeader && authHeader.split(" ")[1];// nếu có authheaders tồn tại thì lấy phần thứ 2 sau khoảng tróng gàn vào token
+    if (token == null) {
+        return res.status(401).json({ error: "No access token" })//server phản hồi lại nếu client không gửi token
+    }
+    //hàm chính xác thực JWT. Dùng verify để kiểm tra những thành phần trong function verify so với jwt
+    jwt.verify(token, process.env.SECRET_ACCESS_KEY, (err, user) => {
+        if (err) {
+            return res.status(403).json({ error: "Access token is invalid" })
+        }
+        req.user = user.id// gần thông tin user bằng id đã xác thực vào request 
+        next()// cho phép request đi tiếp vào route
+    })
+}
 
 // ========================== ROUTES ========================== //
 
@@ -185,6 +205,52 @@ server.post('/update-banner', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
+
+//Blog route
+
+server.post("/create-blog", verifyJWT, (req, res) => {
+    let authorId = req.user;// lấy thông tin user đã đăng nhập(tức đã được verify)
+    let { title, des, banner, tags, content, draft } = req.body; // lấy cái trường đó từ req.body(tức từ nội dùng của trang)
+    if (!title.length) {//kiểm tra sự tồn tại của từng trường đảm bảo không để trống
+        return res.status(403).json({ error: "You must provide a title" });
+    }
+    if (!draft) {// nếu không phải là bảng draft thì tiếp tục kiểm tra kĩ hơn
+        if (!title.length || des.length > 200) {
+            return res.status(403).json({ error: "You must provide blog descriptiton under 200 characters" });
+        }
+        if (!banner.length) {
+            return res.status(403).json({ error: "You must provide blog banner to publish it" });
+        }
+        if (!content.blocks.length) {
+            return res.status(403).json({ error: "There must be some blog content  to publish it" });
+        }
+        if (!tags.length || tags.length > 5) {
+            return res.status(403).json({ error: "Provide tags in order to publish blog,  Maximum 5" });
+        }
+    }
+
+    tags = tags.map(tag => tag.toLowerCase());// chuyển các phần tử tags về chưa thường
+    let blog_id = title.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, "-").trim() + nanoid();// chuyển tiêu đề về dạng slug và thêm id cho nó
+    let blog = new Blog({
+        title, des, banner, content, tags, author: authorId, blog_id, draft: Boolean(draft)//tạo các instance và lưu vào DB
+    })
+    blog.save().then(blog => {//lưu thành công
+        let incrementVal = draft ? 0 : 1;// nếu không tăng số bài đăng là draft(bản thảo) nếu tăng là publish 
+        //Dùng điều kiện authorid = id của client để tìm người người 
+        //sau đó cập nhập số bài viết incrementVal, và push (tức thêm new blog vào list blogs của user)
+        User.findOneAndUpdate({ _id: authorId }, { $inc: { "account_info.total_posts": incrementVal }, $push: { "blogs": blog._id } })
+            .then(user => {
+                return res.status(200).json({ id: blog_id })
+            })
+            .catch(err => {
+                return res.status(500).json({ error: "Failed to update total posts number" })
+            })
+
+    })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
+})
 
 // ========================== KHỞI ĐỘNG SERVER ========================== //
 server.listen(PORT, () => {

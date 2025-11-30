@@ -11,10 +11,24 @@ const Tag = ({ tag }) => {
         // Cập nhật lại state blog
         setBlog({ ...blog, tags });
     }
+    const addEditable =(e)=>{
+        e.target.setAttribute("contentEditable",true)// bật chết độ cho phép chỉnh sửa 
+        e.target.focus();// đăt dấu nháu nháy vào ô để tiếp tục gõ
+    }
+    // cách edit một phần tử 
+    const handleTagEdit =(e)=>{
+        if(e.keyCode ==13 || e.keyCode == 188){
+            e.preventDefault();
+            let currentTag = e.target.innerText;//  nội dùng client nhập
+            tags[tagIndex] = currentTag;//cập nhật nội dung client nhập vào tag tương ứng
+            setBlog({...blog, tags});// cập nhật state  blog
+            e.target.setAttribute("contentEditable",false);// tắt chế độ cho phép chỉnh sữa
+        }
+    }
 
     return (
         <div className="bg-dark-grey inline-flex w-fit items-center px-4 py-1 rounded-full">
-            <p className="inline-block" contentEditable="true">{tag}</p>
+            <p className=" text-white inline-block" onKeyDown={handleTagEdit} onClick={addEditable}>{tag}</p>
             <button
                 onClick={handleTagDelete}
                 className="ml-2 w-4 h-4 flex items-center justify-center rounded-full hover:bg-gray-600"
