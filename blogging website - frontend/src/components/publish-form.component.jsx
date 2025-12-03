@@ -54,8 +54,8 @@ const PublishForm = () => {
                 return;
             }
 
-            if (!tags.includes(tag)) { // Không thêm tag trùng
-                setBlog({ ...blog, tags: [...tags, tag] });
+            if (!tags.includes(tag)) { // nếu thẻ tag không có trong mã tags thì cập nhập
+                setBlog({ ...blog, tags: [...tags, tag] });// không cho tag trùng
             }
 
             e.target.value = ""; // Xóa input sau khi thêm
@@ -87,7 +87,7 @@ const PublishForm = () => {
         // Tạo object gửi lên backend
         const blogOjt = { title, banner, des, content, tags, draft: false };
 
-        // Gọi API publish blog
+        // Gọi API publish blog bằng cấu trúc post(url,data,config)
         axios
             .post(import.meta.env.VITE_SERVER_DOMAIN + "/create-blog", blogOjt, {
                 headers: { Authorization: `Bearer ${access_token}` }, // gửi token xác thực

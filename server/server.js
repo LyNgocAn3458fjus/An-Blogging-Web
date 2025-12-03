@@ -205,8 +205,23 @@ server.post('/update-banner', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
-
 //Blog route
+server.get("/latest-blogs",(req,res)=>{
+    let maxLimit =5;
+    Blog.find({draft:false}) //tìm kiểm blog nào không phải bản nháp
+    .populate("author","personal_info.profile_img personal_info.username personal_info.full_name -_id")//lấy thông tin của tác giả giống với join trong mongo
+    .sort({"publishedAt":-1})// xắp xếp blog theo ngày xuất bản -1 là mới lên dầu , 1 là cũ lên đầu
+    .select("blog_id title des banner activity tags publishedAt -_id")
+    .limit(maxLimit)// giới hạn số bài viết hiển thị 
+    .then(blogs =>{
+        return res.status(200).json({blogs})
+    })
+    .catch(err=>{
+        return res.status(500).json({error:err.message})
+    })
+
+})
+
 
 server.post("/create-blog", verifyJWT, (req, res) => {
     let authorId = req.user;// lấy thông tin user đã đăng nhập(tức đã được verify)
