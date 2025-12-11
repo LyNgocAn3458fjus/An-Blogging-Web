@@ -1,5 +1,5 @@
 // ========================== IMPORT ========================== //
-import { Link, Outlet } from "react-router-dom"; // Link và Outlet dùng cho router
+import { Link, Navigate, Outlet, useNavigate } from "react-router-dom"; // Link và Outlet dùng cho router
 import { useContext, useState } from "react";
 import { UserContext } from '../App';
 import UserNavigationPanel from "./user-navigation.component";
@@ -10,7 +10,7 @@ const Navbar = () => {
   // State để quản lý hiển thị search box và user panel
   const [searchBoxVisibility, setSearchBoxVisibility] = useState(false);
   const [userNavPanel, setUserNavPanel] = useState(false);
-
+  let navigate = useNavigate();
   // Lấy thông tin user từ context
   const { userAuth, userAuth: { access_token, profile_img } = {} } = useContext(UserContext) || {};
 
@@ -25,6 +25,14 @@ const Navbar = () => {
       setUserNavPanel(false);
     }, 200)
   }
+  //nhập thông tin tìm kiếm trên search
+  const handleSearch = (e) => {
+    let query = e.target.value;
+    //nếu có nhập kí tự và nhập enter
+    if (e.keyCode == 13 && query.length) {
+      navigate(`/search/${query}`)
+    }
+  }
 
   return (
     <>
@@ -37,14 +45,17 @@ const Navbar = () => {
         {/* Search box */}
         <div
           className={
-            "absolute bg-white/90 backdrop-blur-md w-full left-0 top-full mt-2 border-b border-gray-200 py-4 px-5 md:border-0 md:block md:relative md:inset-0 md:p-0 md:w-auto rounded-xl transition-all " +
-            (searchBoxVisibility ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none")
+            "absolute w-full left-0 top-full mt-2 bg-white/90 backdrop-blur-md border-b border-gray-200 py-4 px-5 rounded-xl transition-all md:static md:mt-0 md:bg-transparent md:border-none md:p-0 md:w-auto " +
+            (searchBoxVisibility
+              ? "opacity-100 scale-100 pointer-events-auto"
+              : "opacity-0 scale-95 pointer-events-none md:opacity-100 md:scale-100 md:pointer-events-auto")
           }
         >
           <input
             type="text"
             placeholder="Search"
             className="w-full md:w-auto bg-gray-100 p-3 pl-5 pr-14 md:pr-6 rounded-full placeholder:text-gray-400 focus:ring-2 focus:ring-black/20 focus:outline-none transition"
+            onKeyDown={handleSearch}
           />
           <i className="fi fi-rr-search absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 md:pointer-events-none"></i>
         </div>

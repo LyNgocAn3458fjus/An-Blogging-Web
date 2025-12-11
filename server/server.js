@@ -14,8 +14,9 @@ const serviceAccountKey = requireCJS("./react-js-blog-website-946b4-firebase-adm
 import { getAuth } from "firebase-admin/auth";
 import { v2 as cloudinary } from 'cloudinary';
 import { verify } from 'crypto';
-import { timeLog } from 'console';
+import { error, timeLog } from 'console';
 import Blog from './Schema/Blog.js'
+import { title } from 'process';
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -205,21 +206,122 @@ server.post('/update-banner', async (req, res) => {
         return res.status(500).json({ error: err.message });
     }
 });
-//Blog route
-server.get("/latest-blogs",(req,res)=>{
-    let maxLimit =5;
-    Blog.find({draft:false}) //tìm kiểm blog nào không phải bản nháp
-    .populate("author","personal_info.profile_img personal_info.username personal_info.full_name -_id")//lấy thông tin của tác giả giống với join trong mongo
-    .sort({"publishedAt":-1})// xắp xếp blog theo ngày xuất bản -1 là mới lên dầu , 1 là cũ lên đầu
-    .select("blog_id title des banner activity tags publishedAt -_id")
-    .limit(maxLimit)// giới hạn số bài viết hiển thị 
-    .then(blogs =>{
-        return res.status(200).json({blogs})
+//Latest blog route
+server.post("/latest-blogs", (req, res) => {
+    let { page } = req.body
+    let maxLimit = 5;
+    Blog.find({ draft: false }) //tìm kiểm blog nào không phải bản nháp
+        .populate("author", "personal_info.profile_img personal_info.username personal_info.full_name -_id")//lấy thông tin của tác giả giống với join trong mongo
+        .sort({ "publishedAt": -1 })// xắp xếp blog theo ngày xuất bản -1 là mới lên dầu , 1 là cũ lên đầu
+        .select("blog_id title des banner activity tags publishedAt -_id")
+        .skip((page - 1) * maxLimit)// Công thức: .skip((page - 1) * limit).VD litmit 5 bài/1 trang thì ở trang 1 là display 1-5
+        .limit(maxLimit)// giới hạn số bài viết hiển thị 
+        .then(blogs => {
+            return res.status(200).json({ blogs })
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
+
+})
+//Blog theo trang
+server.post("/all-latest-blogs-count", (req, res) =>
+    Blog.countDocuments({ draft: false })
+        .then(count => {
+            return res.status(200).json({ totalDocs: count })
+        })
+        .catch(err => {
+            console.log(err.message);
+            return res.status(500).json({ error: err.message })
+        })
+)
+
+
+//lọc blog theo danh mục(categories)
+server.post("/search-blogs", (req, res) => {
+    let { tag, query, page } = req.body; // dư liệu tag nhạn từ client
+    let findQuery;
+    //kiểm tra xem người dùng tìm kiếm nd theo tag hay theo search query
+    if (tag) {
+        findQuery = { tags: tag, draft: false }
+    } else if (query) {
+        findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
+    }
+    let maxLimit = 2;
+    Blog.find(findQuery) //tìm kiểm blog nào không phải bản nháp
+        .populate("author", "personal_info.profile_img personal_info.username personal_info.full_name -_id")//lấy thông tin của tác giả giống với join trong mongo
+        .sort({ "publishedAt": -1 })// xắp xếp blog theo ngày xuất bản -1 là mới lên dầu , 1 là cũ lên đầu
+        .select("blog_id title des banner activity tags publishedAt -_id")
+        .skip((page - 1) * maxLimit)  // công thức tính phân trang //  dúng skip để bỏ qua trính bị trung dữ liệu
+        .limit(maxLimit)// giới hạn số bài viết hiển thị 
+        .then(blogs => {
+            return res.status(200).json({ blogs })
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
+})
+// tổng số bài blog sẽ có theo mỗi tag. VD technology có 13 bài 
+server.post("/search-blogs-count", (req, res) => {
+    let { tag, query } = req.body;//destructuring nhận các tag khi người dùng chọn và gán vào đối tượng tag
+    let findQuery
+    if (tag) {
+        findQuery = { tags: tag, draft: false }
+    } else if (query) {
+        findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
+    }
+    Blog.countDocuments(findQuery)
+        .then(count => {
+            return res.status(200).json({ totalDocs: count })
+        })
+        .catch(
+            err => {
+                return res.status(500).json({ error: err.message })
+            }
+        )
+
+})
+//tìm kiếm user 
+server.post("/search-users", (req, res) => {
+    let { query } = req.body;// dữ liệu nhập trên thanh tìm kiếm 
+    //new RegExp thường dùng trong tìm kiếm vào kết quản nó có dạng query/i trên tab
+    User.find({ "personal_info.username": new RegExp(query, 'i') })   //RegExp(mẫu cần tìm, tùy chọn còn gọi là yêu cầu,đk)
+        .limit(50)
+        .select("personal_info.fullname personal_info.username personal_info.profile_img -_id")
+        .then(users => {
+            return res.status(200).json({ users })
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
+})
+// xử lí dữ liệu khi client gửi tên username để xem profile
+//find trả về nhiều kết quả 1 list, còn findOne chỉ trả 1 kết quả
+server.post("/get-profile",(req,res)=>{
+    let  {username} = req.body// tên người dùng nhập trên input
+    User.findOne({"personal_info.username":username})
+    .select("-personal_info.password -google_auth -updateAt -blogs") // loại bỏ thông tin quan trọng
+    .then(user =>{
+        return res.status(200).json(user)
     })
     .catch(err=>{
         return res.status(500).json({error:err.message})
     })
+})
 
+
+//hiển thị blog theo trending
+server.get("/trending-blogs", (req, res) => {
+    Blog.find({ draft: false }).populate("author", "personal_info.profile_img personal_info.username personal_info.full_name -_id")
+        .sort({ "activity.total_read": -1, "activity.total_like": -1, "publishedAt": -1 })// sắp xếp giảm giần cái nào lượt nhiều đương trước, trending
+        .select("blog_id title publishedAt -_id ")
+        .limit(5)
+        .then((blogs) => {
+            return res.status(200).json({ blogs })
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
 })
 
 

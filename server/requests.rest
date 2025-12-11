@@ -1,1 +1,6 @@
-GET http://localhost:3000/latest-blogs
+POST http://localhost:3000/get-profile
+Content-Type: application/json
+
+{
+    "username":"vtt2002"
+}

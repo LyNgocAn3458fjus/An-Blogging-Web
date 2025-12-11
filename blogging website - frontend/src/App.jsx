@@ -5,6 +5,9 @@ import { createContext, useState, useEffect } from "react";
 import { lookInSession } from "./common/session";
 import Editor from "./pages/editor.pages";
 import HomePage from "./pages/home.page";
+import SearchPage from "./pages/search.page";
+import PageNotFound from "./pages/404.page";
+import ProfilePage from "./pages/profile.page";
 
 
 // chủ yếu để quản lí trạng thái xem người dùng có đăng nhập hay chưa
@@ -32,10 +35,15 @@ const App = () => {
       <Routes>
         <Route path="/editor" element={<Editor />} />
         <Route path="/" element={<Navbar />}>
-        {/* index element dùng để khai báo route mặc định so với route cha là / */}
+          {/* index element dùng để khai báo route mặc định so với route cha là / */}
+          {/* element là cái mình muốn hiển thị tại route */}
           <Route index element={<HomePage />} />
           <Route path="/signin" element={<UserAuthForm type="sign-in" />} />
           <Route path="/signup" element={<UserAuthForm type="sign-up" />} />
+          <Route path="/search/:query" element={<SearchPage />} />
+          {/* khi để dâu : trước 1 tên thì react sẽ hiểu đó là biến */}
+          <Route path="*" element={<PageNotFound />} />
+          <Route path="/user/:id" element={<ProfilePage/>} />
         </Route>
       </Routes>
     </UserContext.Provider>

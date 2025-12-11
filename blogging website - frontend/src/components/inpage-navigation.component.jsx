@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-
+export let activeTabLineRef;
+export let activeTabRef;
 /*
   Component này tạo thanh chuyển tab.
   - routes: danh sách tên tab
@@ -9,10 +10,10 @@ import { useState, useRef, useEffect } from "react";
 const InPageNavigation = ({ routes, defaultHidden = [], defautActiveIndex = 0,children}) => {
 
     // Ref của cái thanh gạch dưới
-    let activeTabLineRef = useRef();
+    activeTabLineRef = useRef();
 
     // Ref của cái tab đang được chọn mặc định
-    let activeTabRef = useRef();
+    activeTabRef = useRef();
 
     // Lưu tab nào đang active để đổi màu chữ
     let [InPageNavIndex, setInPageNavIndex] = useState(defautActiveIndex);
