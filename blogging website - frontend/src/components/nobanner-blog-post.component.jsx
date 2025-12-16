@@ -17,26 +17,27 @@ const MinimalBlogPost = ({ blog, index }) => {
                 gap-3 sm:gap-4
                 p-3 sm:p-4
                 mb-5 rounded-3xl
-                shadow-lg hover:shadow-2xl 
+                shadow-lg hover:shadow-xl
                 transition-all duration-500
-                bg-white border border-gray-200
+                bg-soft-white border border-grey
                 hover:-translate-y-1 hover:scale-[1.02]
                 cursor-pointer group
             "
         >
             {/* INDEX */}
-            <div className="
-                text-xl sm:text-2xl
-                font-extrabold text-gray-300 
-                group-hover:text-purple-500 
-                transition-colors duration-500
-            ">
+            <div
+                className="
+                    text-xl sm:text-2xl
+                    font-extrabold text-grey
+                    group-hover:text-purple
+                    transition-colors duration-500
+                "
+            >
                 {index < 9 ? `0${index + 1}` : index + 1}
             </div>
 
             {/* INFO */}
             <div className="flex flex-col w-full">
-
                 {/* AUTHOR */}
                 <div className="flex items-center gap-2 sm:gap-3">
                     <img
@@ -53,17 +54,20 @@ const MinimalBlogPost = ({ blog, index }) => {
                     />
 
                     <div>
-                        <p className="
-                            text-sm 
-                            sm:text-base
-                            font-semibold text-gray-900
-                        ">
+                        <p
+                            className="
+                                text-sm sm:text-base
+                                font-semibold text-black
+                            "
+                        >
                             {fullname}
                         </p>
-                        <p className="text-gray-500 text-xs sm:text-sm">@{username}</p>
+                        <p className="text-dark-grey text-xs sm:text-sm">
+                            @{username}
+                        </p>
                     </div>
 
-                    <p className="ml-auto text-gray-400 text-xs sm:text-sm font-medium">
+                    <p className="ml-auto text-dark-grey text-xs sm:text-sm font-medium">
                         {getDay(publishedAt)}
                     </p>
                 </div>
@@ -71,11 +75,11 @@ const MinimalBlogPost = ({ blog, index }) => {
                 {/* TITLE */}
                 <h2
                     className="
-                        mt-3 sm:mt-3
+                        mt-3
                         text-base sm:text-lg
-                        font-bold text-gray-700
-                        group-hover:text-purple-600
-                        transition-all duration-500
+                        font-bold text-dark-grey
+                        group-hover:text-purple
+                        transition-colors duration-500
                     "
                 >
                     {title}

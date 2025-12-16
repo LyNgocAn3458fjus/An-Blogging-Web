@@ -82,15 +82,15 @@ const UserAuthForm = ({ type }) => {
 
   return (
     <AnimationWrapper keyValue={type}>
-      <section className="h-cover flex items-center justify-center bg-gradient-to-br from-white to-gray-100">
+      <section className="h-cover flex items-center justify-center bg-soft-lavender ">
         <Toaster />
 
         <form
           ref={authForm}
           id="formElement"
-          className="w-[80%] max-w-[420px] p-8 rounded-xl bg-white/70 backdrop-blur-lg shadow-lg border border-gray-200 animate-fadeIn"
+          className="w-[80%] max-w-[420px] p-8 rounded-xl  backdrop-blur-lg shadow-lg border bg-gradient-blue-dark border-gray-200 animate-fadeIn"
         >
-          <h1 className="text-4xl font-gelasio tracking-wide text-center mb-6 text-gray-900">
+          <h1 className="text-4xl font-gelasio tracking-wide text-center mb-6 text-white">
             {type === "sign-in" ? "Hello, welcome back" : "Join our community"}
           </h1>
 
@@ -132,7 +132,7 @@ const UserAuthForm = ({ type }) => {
           </div>
 
           <button
-            className="w-full flex items-center justify-center gap-4 py-3 rounded-lg border border-gray-300 hover:bg-gray-100 transition shadow-sm"
+            className="w-full flex items-center justify-center gap-4 py-3 rounded-lg bg-white border border-gray-300 hover:bg-gray-400 transition shadow-sm"
             onClick={handleGoogleAuth}
           >
             <img src={googleIcon} className="w-5" />
@@ -140,16 +140,16 @@ const UserAuthForm = ({ type }) => {
           </button>
 
           {type === "sign-in" ? (
-            <p className="mt-6 text-center text-gray-700">
+            <p className="mt-6 text-center text-white">
               Don’t have an account?
-              <Link to="/signup" className="underline ml-1 text-black">
+              <Link to="/signup" className="underline ml-1 text-white">
                 Join us
               </Link>
             </p>
           ) : (
-            <p className="mt-6 text-center text-gray-700">
+            <p className="mt-6 text-center text-white">
               Already a member?
-              <Link to="/signin" className="underline ml-1 text-black">
+              <Link to="/signin" className="underline ml-1 text-white">
                 Sign in
               </Link>
             </p>

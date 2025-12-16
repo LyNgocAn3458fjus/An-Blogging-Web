@@ -4,7 +4,7 @@ import Logo from "../imgs/logo.png"; // nếu bạn có logo, thay đường d�
 
 const PageNotFound = () => {
     return (
-        <section className="min-h-screen w-full flex flex-col items-center justify-between bg-gray-50 px-4 py-10">
+        <section className="min-h-screen w-full flex flex-col items-center justify-between bg-soft-lavender px-4 py-10">
 
 
             {/* Khu vực hình 404 */}

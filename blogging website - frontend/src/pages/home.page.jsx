@@ -1,10 +1,7 @@
 import { Link } from "react-router-dom";
 import AnimationWrapper from "../common/page-animation";
-import logo from "../imgs/logo.png";
-import defaultBanner from "../imgs/blog banner.png";
 import InPageNavigation from "../components/inpage-navigation.component";
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import Loader from "../components/loader.component";
 import BlogPostCard from "../components/blog-post.component";
@@ -20,12 +17,10 @@ const HomePage = () => {
     let [pageState, setPageState] = useState("home")
     let categories = ["programming", "hollywood", "film making", "social media", "cooking", "technologies", "finances", "travel"];
 
-
     // tạo bảng blog theo từng trang/phân trang
     const fetchLatestBlogs = ({ page = 1 }) => {
         axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/latest-blogs", { page })
             .then(async ({ data }) => {
-                console.log(data.blogs);
                 //hàm xử lí phân trang
                 let formatedData = await filterPaginationData({
                     state: blogs,
@@ -33,17 +28,18 @@ const HomePage = () => {
                     page,
                     counteRoute: "/all-latest-blogs-count"
                 })
-                console.log(formatedData)
                 setBlogs(formatedData)
             })
             .catch(err => console.log(err));
     };
+
     //lấy blog trending 
     const fetchTrendingBlogs = () => {
         axios.get(import.meta.env.VITE_SERVER_DOMAIN + "/trending-blogs")
             .then(({ data }) => setTrendingBlogs(data.blogs))
             .catch(err => console.log(err));
     }
+
     // ham fetch dùng để lấy dự liệu từ server thông qua endpoint
     const fetchBlogsByCategory = ({ page = 1 }) => {
         axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/search-blogs", { tag: pageState, page })
@@ -60,10 +56,11 @@ const HomePage = () => {
             })
             .catch(err => console.log(err));
     }
+
     // dùng useEffect xử lí các logic nhỏ nhỏ tab điều hướng mà không cần re render*+
     useEffect(() => {
         activeTabRef.current.click();
-        if (pageState == "home") {
+        if (pageState === "home") {
             fetchLatestBlogs({ page: 1 });
         }
         else {
@@ -77,7 +74,7 @@ const HomePage = () => {
     const loadBlogByCategory = (e) => {
         let category = e.target.innerText.toLowerCase(); // innerText là lấy và thay đổi nội dung text
         setBlogs(null);
-        if (pageState == category) {
+        if (pageState === category) {
             setPageState("home")
             return;
         }
@@ -86,16 +83,24 @@ const HomePage = () => {
 
     return (
         <AnimationWrapper>
-            <section className="h-cover flex justify-center gap-10">
+            <section className="
+                h-cover
+                flex
+                justify-center
+                gap-10
+                bg-soft-lavender
+                p-6
+                rounded-2xl
+            ">
                 {/* blog lates */}
-                <div className="w-full">
+                <div className="w-full bg-white rounded-xl shadow-sm p-4">
                     {/* Chuyển hướng nhưng trong cùng 1 trang khác với Navigation  */}
                     {/* nút trending blogs mặc định ẩn nếu màng hình to */}
                     <InPageNavigation routes={[pageState, "trending blogs"]} defaultHidden={["trending blogs"]}>
                         {/* nơi in danh sach cac blog */}
                         <>
                             {
-                                blogs == null ?
+                                blogs === null ?
                                     (<Loader />) :
                                     (
                                         blogs.results.length ?
@@ -118,7 +123,7 @@ const HomePage = () => {
                         </>
                         <>
                             {
-                                trendingBlogs == null ?
+                                trendingBlogs === null ?
                                     (<Loader />) :
                                     (
                                         trendingBlogs.length ?
@@ -141,19 +146,19 @@ const HomePage = () => {
                     <div className="flex flex-col gap-10">
                         <div>
                             <h1 className="font-medium">Storeies from all insterests</h1>
-                            <div className="flex gap-3 flex-wrap">
+                            <div className="flex gap-3 flex-wrap mt-2">
                                 {
                                     categories.map((category, i) => {
-                                        return <button onClick={loadBlogByCategory} className={"tag" + (pageState == category ? " bg-black text-white" : " ")} key={i}>{category}</button>
+                                        return <button onClick={loadBlogByCategory} className={"tag" + (pageState === category ? " bg-black text-white" : " ")} key={i}>{category}</button>
                                     })
                                 }
                             </div>
                         </div>
                     </div>
                     <div>
-                        <h1 className="font-medium text-xl mb-8">Trending  <i className="fi fi-rr-arrow-trend-up" /></h1>
+                        <h1 className="font-medium text-xl mb-4">Trending  <i className="fi fi-rr-arrow-trend-up" /></h1>
                         {
-                            trendingBlogs == null ? (<Loader />) :
+                            trendingBlogs === null ? (<Loader />) :
                                 trendingBlogs.map((blog, i) => {
                                     return <AnimationWrapper transition={{ duration: 1, delay: i * .1 }} key={i}>
                                         < MinimalBlogPost blog={blog} index={i} />
@@ -168,4 +173,3 @@ const HomePage = () => {
     )
 }
 export default HomePage;
-

@@ -36,7 +36,7 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="navbar flex items-center p-3 bg-white/80 backdrop-blur-md shadow-sm relative z-50">
+      <nav className="navbar flex items-center p-3 bg-gradient-blue-dark backdrop-blur-md shadow-sm relative z-50">
         {/* Logo */}
         <Link to="/" className="flex-none w-10 hover:opacity-80 transition">
           <img src={logo} className="w-full" alt="Logo" />
@@ -74,7 +74,7 @@ const Navbar = () => {
         {/* Link Write (desktop) */}
         <Link className="md:flex hidden gap-2 link px-4 py-2 rounded-lg hover:bg-gray-100 transition" to="/editor">
           <i className="fi fi-rs-edit-alt"></i>
-          <p>Write</p>
+          <p className="text-white">Write</p>
         </Link>
 
         {/* Nếu user đã đăng nhập */}
@@ -98,7 +98,7 @@ const Navbar = () => {
         ) : (
           <>
             {/* Link Sign In / Sign Up */}
-            <Link className="btn-dark py-2 px-4 rounded-lg hover:opacity-90 transition" to="/signin">Sign In</Link>
+            <Link className="btn-grad-blue-deep py-3 px-6 text-white rounded-lg hover:opacity-90 transition" to="/signin">Sign In</Link>
             <Link className="btn-light py-2 px-4 rounded-lg hover:opacity-90 transition hidden md:block" to="/signup">Sign Up</Link>
           </>
         )}

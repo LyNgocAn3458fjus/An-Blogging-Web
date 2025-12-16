@@ -239,13 +239,16 @@ server.post("/all-latest-blogs-count", (req, res) =>
 
 //lọc blog theo danh mục(categories)
 server.post("/search-blogs", (req, res) => {
-    let { tag, query, page } = req.body; // dư liệu tag nhạn từ client
+    let { tag,author, query, page } = req.body; // dư liệu tag nhạn từ client
     let findQuery;
     //kiểm tra xem người dùng tìm kiếm nd theo tag hay theo search query
     if (tag) {
         findQuery = { tags: tag, draft: false }
     } else if (query) {
         findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
+    }
+    else if(author){
+        findQuery = {author,draft:false }//có author và là bản thật
     }
     let maxLimit = 2;
     Blog.find(findQuery) //tìm kiểm blog nào không phải bản nháp
@@ -263,12 +266,15 @@ server.post("/search-blogs", (req, res) => {
 })
 // tổng số bài blog sẽ có theo mỗi tag. VD technology có 13 bài 
 server.post("/search-blogs-count", (req, res) => {
-    let { tag, query } = req.body;//destructuring nhận các tag khi người dùng chọn và gán vào đối tượng tag
+    let { tag, author, query } = req.body;//destructuring nhận các tag khi người dùng chọn và gán vào đối tượng tag
     let findQuery
     if (tag) {
         findQuery = { tags: tag, draft: false }
     } else if (query) {
         findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
+    }
+    else if(author){
+        findQuery = {author,draft:false }//có author và là bản thật
     }
     Blog.countDocuments(findQuery)
         .then(count => {

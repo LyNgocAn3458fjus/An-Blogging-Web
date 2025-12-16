@@ -10,11 +10,12 @@ const UserCard = ({ user }) => {
             to={`/user/${username}`}
             className="
                 flex items-center gap-5 p-4
-                rounded-3xl shadow-xl 
-                bg-gradient-to-r from-purple-50 via-pink-50 to-yellow-50
-                transition-all duration-500 cursor-pointer
-                hover:shadow-2xl hover:scale-[1.02]
-                group
+                rounded-3xl
+                shadow-xl hover:shadow-2xl
+                transition-all duration-500
+                cursor-pointer group
+                bg-soft-lavender
+                hover:-translate-y-1 hover:scale-[1.02]
             "
         >
             {/* Avatar */}
@@ -31,10 +32,16 @@ const UserCard = ({ user }) => {
 
             {/* Text */}
             <div className="flex flex-col">
-                <h1 className="font-semibold text-gray-800 text-xl group-hover:text-purple-600 transition-colors duration-300">
+                <h1
+                    className="
+                        font-semibold text-black text-xl
+                        group-hover:text-purple
+                        transition-colors duration-300
+                    "
+                >
                     {fullname}
                 </h1>
-                <p className="text-gray-500">@{username}</p>
+                <p className="text-dark-grey">@{username}</p>
             </div>
         </Link>
     );
