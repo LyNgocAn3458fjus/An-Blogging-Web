@@ -52,6 +52,7 @@ export default {
         'sky-lavender': 'linear-gradient(-225deg, #7DE2FC 0%, #B9B6E5 100%)',
         //trắng mềm 
         'soft-white': 'linear-gradient(to top, #dfe9f3 0%, white 100%)',
+        'ocean-twilight':'linear-gradient(to top, #30cfd0 0%, #330867 100%)',
       },
     },
   },

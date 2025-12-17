@@ -8,6 +8,7 @@ import axios from "axios";
 import { storeInSession } from "../common/session";
 import { UserContext } from "../App";
 import { authWithGoogle } from "../common/firebase";
+import RainSplash from "../common/RainSplash";
 
 const UserAuthForm = ({ type }) => {
   const authForm = useRef();
@@ -82,13 +83,14 @@ const UserAuthForm = ({ type }) => {
 
   return (
     <AnimationWrapper keyValue={type}>
-      <section className="h-cover flex items-center justify-center bg-soft-lavender ">
+      <section className="relative w-full h-screen flex items-center justify-center bg-black overflow-hidden">
+        <RainSplash  dropCount={40} groundHeight={60} />
         <Toaster />
 
         <form
           ref={authForm}
           id="formElement"
-          className="w-[80%] max-w-[420px] p-8 rounded-xl  backdrop-blur-lg shadow-lg border bg-gradient-blue-dark border-gray-200 animate-fadeIn"
+          className="relative z-10 w-[80%] max-w-[420px] p-8 rounded-xl backdrop-blur-lg shadow-lg border bg-gradient-blue-dark border-gray-200 animate-fadeIn"
         >
           <h1 className="text-4xl font-gelasio tracking-wide text-center mb-6 text-white">
             {type === "sign-in" ? "Hello, welcome back" : "Join our community"}

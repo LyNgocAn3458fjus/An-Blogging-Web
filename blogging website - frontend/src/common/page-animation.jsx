@@ -1,19 +1,38 @@
-import { AnimatePresence, motion } from "framer-motion";//thư viện animation mạnh mẽ
-// trạng thái ban đầu là mờ 0, sau đó là độ mờ là 1 và được thực hiện trong 1s
-const AnimationWrapper = ({ children, KeyValue, initial = { opacity: 0 }, animate = { opacity: 1 }, transition = { duration: 1 }, className }) => {
-    return (
-        <AnimatePresence>
-            <motion.div
-                key={KeyValue}
-                initial={initial}
-                animate={animate}
-                transition={transition}
-                className={className}
-            >
-                {children}
-            </motion.div>
-        </AnimatePresence>
+import { AnimatePresence, motion } from "framer-motion";
 
-    )
-}
+/**
+ * AnimationWrapper - reusable wrapper animation
+ * Props:
+ *  - KeyValue: key để AnimatePresence nhận diện
+ *  - initial, animate, exit: trạng thái animation
+ *  - transition: thời gian + easing
+ *  - className: Tailwind class cho wrapper
+ */
+const AnimationWrapper = ({
+  children,
+  KeyValue,
+  initial = { opacity: 0, y: 20 },
+  animate = { opacity: 1, y: 0 },
+  exit = { opacity: 0, y: 20 },
+  transition = { duration: 0.8, ease: "easeInOut" },
+  className = "",
+}) => {
+  return (
+    <AnimatePresence>
+      <motion.div
+        key={KeyValue}
+        initial={initial}
+        animate={animate}
+        exit={exit}
+        transition={transition}
+        className={className}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
 export default AnimationWrapper;

@@ -13,18 +13,18 @@ import LoadMoreDataBtn from "../components/load-more.component";
 import PageNotFound from "./404.page";
 import NoDataMessage from "../components/nodata.component";
 
+import { motion } from "framer-motion";
+
+// -------------------- Motion Variants --------------------
+const fadeInUp = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.6, ease: "easeOut" } };
+const avatarHover = { whileHover: { scale: 1.05, rotate: 2, transition: { duration: 0.3 } } };
+const cardHover = { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, whileHover: { scale: 1.02, boxShadow: "0 20px 40px rgba(0,0,0,0.2)" }, transition: { duration: 0.4 } };
+const buttonHover = { whileHover: { scale: 1.05 }, whileTap: { scale: 0.95 } };
+
 // Cấu trúc mặc định cho profile
 export const profileDataStructure = {
-    personal_info: {
-        fullname: "",
-        username: "",
-        profile_img: "",
-        bio: "",
-    },
-    account_info: {
-        total_posts: 0,
-        total_reads: 0,
-    },
+    personal_info: { fullname: "", username: "", profile_img: "", bio: "" },
+    account_info: { total_posts: 0, total_reads: 0 },
     social_links: {},
     joinedAt: " ",
 };
@@ -39,7 +39,6 @@ const ProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [profileLoaded, setProfileLoaded] = useState("");
 
-    // Destructure dữ liệu profile để dễ dùng trong JSX
     const {
         personal_info: { fullname, username: profile_username, profile_img, bio },
         account_info: { total_posts, total_reads },
@@ -106,55 +105,25 @@ const ProfilePage = () => {
 
     return (
         <AnimationWrapper>
-            <section className="
-                h-cover
-                max-w-5xl
-                mx-auto
-                flex
-                flex-col
-                md:flex-row-reverse
-                items-center
-                md:items-start
-                gap-6
-                md:gap-8
-                min-[1100px]:gap-12
-                bg-soft-lavender
-                rounded-2xl
-                p-6
-            ">
+            <motion.section {...fadeInUp} className="h-cover max-w-5xl mx-auto flex flex-col md:flex-row-reverse items-center md:items-start gap-6 md:gap-8 min-[1100px]:gap-12 bg-soft-lavender rounded-2xl p-6">
+                
                 {/* -------------------- LEFT / PROFILE INFO -------------------- */}
-                <div className="
-                    flex flex-col items-center md:items-start gap-4
-                    min-w-[250px] md:w-[50%] md:pl-8
-                    md:border-l border-grey
-                    md:sticky md:top-[100px] md:py-10
-                ">
-                    <img
-                        className="w-40 h-40 md:w-32 md:h-32 rounded-full object-cover border border-gray-200 shadow-sm"
-                        src={profile_img}
-                        alt="avatar"
-                    />
-                    <h1 className="text-xl md:text-2xl font-semibold">@{profile_username}</h1>
-                    <p className="text-xl md:text-2xl font-medium">{fullname}</p>
-                    <p className="text-xl md:text-2xl font-medium">
-                        {total_posts.toLocaleString()} posts – {total_reads.toLocaleString()} reads
-                    </p>
+                <motion.div {...fadeInUp} className="flex flex-col items-center md:items-start gap-4 min-w-[250px] md:w-[50%] md:pl-8 md:border-l border-grey md:sticky md:top-[100px] md:py-10">
+                    <motion.img {...avatarHover} className="w-40 h-40 md:w-32 md:h-32 rounded-full object-cover border border-gray-200 shadow-sm" src={profile_img} alt="avatar" />
+                    <motion.h1 {...fadeInUp} className="text-xl md:text-2xl font-semibold">@{profile_username}</motion.h1>
+                    <motion.p {...fadeInUp} className="text-xl md:text-2xl font-medium">{fullname}</motion.p>
+                    <motion.p {...fadeInUp} className="text-xl md:text-2xl font-medium">{total_posts.toLocaleString()} posts – {total_reads.toLocaleString()} reads</motion.p>
 
                     {/* Nếu là chính mình thì hiển thị nút chỉnh sửa */}
                     {profileId === username && (
-                        <div className="flex gap-4 mt-2">
+                        <motion.div {...buttonHover} className="flex gap-4 mt-2">
                             <Link className="btn-light rounded-md" to="/setting/edit-profile">Edit profile</Link>
-                        </div>
+                        </motion.div>
                     )}
 
                     {/* Thông tin AboutUser bên trái, chỉ hiển thị trên desktop */}
-                    <AboutUser
-                        className="max-md:hidden"
-                        bio={bio}
-                        social_links={social_links}
-                        joinedAt={joinedAt}
-                    />
-                </div>
+                    <AboutUser className="max-md:hidden" bio={bio} social_links={social_links} joinedAt={joinedAt} />
+                </motion.div>
 
                 {/* -------------------- RIGHT / CONTENT -------------------- */}
                 <div className="max-md:mt-12 w-full bg-white rounded-xl p-4 shadow-sm">
@@ -164,11 +133,13 @@ const ProfilePage = () => {
                             {blogs === null ? (
                                 <Loader />
                             ) : blogs.results.length ? (
-                                blogs.results.map((blog, i) => (
-                                    <AnimationWrapper key={i} transition={{ duration: 1, delay: i * 0.1 }}>
-                                        <BlogPostCard content={blog} author={blog.author.personal_info} />
-                                    </AnimationWrapper>
-                                ))
+                                <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.1 } } }}>
+                                    {blogs.results.map((blog, i) => (
+                                        <motion.div key={i} {...cardHover}>
+                                            <BlogPostCard content={blog} author={blog.author.personal_info} />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
                             ) : (
                                 <NoDataMessage message="This user hasn't published any blogs yet." />
                             )}
@@ -180,7 +151,7 @@ const ProfilePage = () => {
                         <AboutUser bio={bio} social_links={social_links} joinedAt={joinedAt} />
                     </InPageNavigation>
                 </div>
-            </section>
+            </motion.section>
         </AnimationWrapper>
     );
 };
