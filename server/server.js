@@ -239,18 +239,18 @@ server.post("/all-latest-blogs-count", (req, res) =>
 
 //lọc blog theo danh mục(categories)
 server.post("/search-blogs", (req, res) => {
-    let { tag,author, query, page } = req.body; // dư liệu tag nhạn từ client
+    let { tag, author, query, page, limit, eliminate_blog } = req.body; // dư liệu tag nhạn từ client
     let findQuery;
     //kiểm tra xem người dùng tìm kiếm nd theo tag hay theo search query
     if (tag) {
-        findQuery = { tags: tag, draft: false }
+        findQuery = { tags: tag, draft: false, blog_id:{$ne:eliminate_blog}}//$ne tức là not equal nghĩa là không bằng(loại bỏ bài blog đang xem ra khỏi đề cử)
     } else if (query) {
         findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
     }
-    else if(author){
-        findQuery = {author,draft:false }//có author và là bản thật
+    else if (author) {
+        findQuery = { author, draft: false }//có author và là bản thật
     }
-    let maxLimit = 2;
+    let maxLimit = limit ? limit : 2
     Blog.find(findQuery) //tìm kiểm blog nào không phải bản nháp
         .populate("author", "personal_info.profile_img personal_info.username personal_info.full_name -_id")//lấy thông tin của tác giả giống với join trong mongo
         .sort({ "publishedAt": -1 })// xắp xếp blog theo ngày xuất bản -1 là mới lên dầu , 1 là cũ lên đầu
@@ -273,8 +273,8 @@ server.post("/search-blogs-count", (req, res) => {
     } else if (query) {
         findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
     }
-    else if(author){
-        findQuery = {author,draft:false }//có author và là bản thật
+    else if (author) {
+        findQuery = { author, draft: false }//có author và là bản thật
     }
     Blog.countDocuments(findQuery)
         .then(count => {
@@ -303,18 +303,48 @@ server.post("/search-users", (req, res) => {
 })
 // xử lí dữ liệu khi client gửi tên username để xem profile
 //find trả về nhiều kết quả 1 list, còn findOne chỉ trả 1 kết quả
-server.post("/get-profile",(req,res)=>{
-    let  {username} = req.body// tên người dùng nhập trên input
-    User.findOne({"personal_info.username":username})
-    .select("-personal_info.password -google_auth -updateAt -blogs") // loại bỏ thông tin quan trọng
-    .then(user =>{
-        return res.status(200).json(user)
-    })
-    .catch(err=>{
-        return res.status(500).json({error:err.message})
-    })
+server.post("/get-profile", (req, res) => {
+    let { username } = req.body// tên người dùng nhập trên input
+    User.findOne({ "personal_info.username": username })
+        .select("-personal_info.password -google_auth -updateAt -blogs") // loại bỏ thông tin quan trọng
+        .then(user => {
+            return res.status(200).json(user)
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
 })
+//lấy dữ liệu detail khi dựa trên blog_id
+server.post("/get-blog", (req, res) => {
+    const { blog_id } = req.body;
 
+    Blog.findOneAndUpdate(
+        { blog_id },
+        { $inc: { "activity.total_reads": 1 } },
+        { new: true }
+    )
+        .populate(
+            "author",
+            "personal_info.fullname personal_info.username personal_info.profile_img"
+        )
+        .select("title des banner content activity publishedAt blog_id tags")
+        .then(blog => {
+            if (!blog) {
+                return res.status(404).json({ error: "Blog not found" });
+            }
+
+            // update user đọc blog (chạy nền, KHÔNG gửi response ở đây)
+            User.findByIdAndUpdate(
+                blog.author._id,
+                { $inc: { "account_info.total_reads": 1 } }
+            ).catch(err => console.error(err));
+
+            return res.status(200).json({ blog });
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message });
+        });
+});
 
 //hiển thị blog theo trending
 server.get("/trending-blogs", (req, res) => {

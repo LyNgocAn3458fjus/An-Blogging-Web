@@ -9,7 +9,7 @@ import InlineCode from "@editorjs/inline-code"; // Dùng để tạo inline code
 import { uploadImage } from "../common/aws";
 
 
-const uploadImageByURL = (e) => {
+const uploadImageByURL = async (e) => {
     let link = new Promise((resolve, reject) => {
         try {
             resolve(e)
@@ -18,22 +18,20 @@ const uploadImageByURL = (e) => {
             reject(err)
         }
     })
-    return link.then(url => {
+    const url = await link;
+    return {
+        success: 1,
+        file: { url }
+    };
+}
+const uploadImageByFile = async (e) => {
+    const url = await uploadImage(e);
+    if (url) {
         return {
             success: 1,
             file: { url }
-        }
-    })
-}
-const uploadImageByFile = (e) => {
-    return uploadImage(e).then(url => {
-        if (url) {
-            return {
-                success: 1,
-                file: { url }
-            }
-        }
-    })
+        };
+    }
 }
 // Đây là object chứa danh sách tất cả các công cụ bạn muốn bật trong EditorJS
 export const tools = {
