@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { Link, useNavigate } from "react-router-dom"; // Link: chuyển trang, useNavigate: redirect
+import { Link, useNavigate, useParams } from "react-router-dom"; // Link: chuyển trang, useNavigate: redirect
 import { EditorContext } from "../pages/editor.pages"; // Context chứa state blog
 import { Toaster, toast } from "react-hot-toast"; // Toast notification
 import defaultBanner from "../imgs/blog banner.png"; // Banner mặc định nếu user chưa chọn
@@ -21,8 +21,9 @@ const PublishForm = () => {
         setBlog,
         setEditorState
     } = useContext(EditorContext); // Lấy state blog và hàm set từ EditorContext
-
+    let { blog_id } = useParams();
     const characterLimit = 200; // Giới hạn ký tự mô tả
+
 
     /* ----------------------------- INPUT HANDLERS ---------------------------- */
 
@@ -84,7 +85,7 @@ const PublishForm = () => {
         const blogOjt = { title, banner, des, content, tags, draft: false };
 
         axios
-            .post(import.meta.env.VITE_SERVER_DOMAIN + "/create-blog", blogOjt, {
+            .post(import.meta.env.VITE_SERVER_DOMAIN + "/create-blog", { ...blogOjt, id: blog_id }, {
                 headers: { Authorization: `Bearer ${access_token}` },
             })
             .then(() => {

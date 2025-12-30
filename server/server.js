@@ -243,7 +243,7 @@ server.post("/search-blogs", (req, res) => {
     let findQuery;
     //kiểm tra xem người dùng tìm kiếm nd theo tag hay theo search query
     if (tag) {
-        findQuery = { tags: tag, draft: false, blog_id:{$ne:eliminate_blog}}//$ne tức là not equal nghĩa là không bằng(loại bỏ bài blog đang xem ra khỏi đề cử)
+        findQuery = { tags: tag, draft: false, blog_id: { $ne: eliminate_blog } }//$ne tức là not equal nghĩa là không bằng(loại bỏ bài blog đang xem ra khỏi đề cử)
     } else if (query) {
         findQuery = { draft: false, title: new RegExp(query, 'i') }//tạo ra regex để tìm query và không phân biệt i tức chưa hoa chữ thường
     }
@@ -316,12 +316,13 @@ server.post("/get-profile", (req, res) => {
 })
 //lấy dữ liệu detail khi dựa trên blog_id
 server.post("/get-blog", (req, res) => {
-    const { blog_id } = req.body;
-
+    const { blog_id, draft, mode } = req.body;
+    let incrementVal = mode !== 'edit' ? 1 : 0
     Blog.findOneAndUpdate(
         { blog_id },
-        { $inc: { "activity.total_reads": 1 } },
+        { $inc: { "activity.total_reads": incrementVal } },
         { new: true }
+
     )
         .populate(
             "author",
@@ -329,21 +330,25 @@ server.post("/get-blog", (req, res) => {
         )
         .select("title des banner content activity publishedAt blog_id tags")
         .then(blog => {
-            if (!blog) {
-                return res.status(404).json({ error: "Blog not found" });
-            }
-
             // update user đọc blog (chạy nền, KHÔNG gửi response ở đây)
-            User.findByIdAndUpdate(
-                blog.author._id,
-                { $inc: { "account_info.total_reads": 1 } }
-            ).catch(err => console.error(err));
-
+            User.findOneAndUpdate(
+                { "personal_info.username": blog.author.personal_info.username },
+                { $inc: { "account_info.total_reads": incrementVal } }
+            )
+                .catch(err => {
+                    return res.status(500).json({ error: err.message })
+                });
+            // nếu blog là bản nháp và ! không có quền xem, truy cập bản nháp
+            if (blog.draft && !draft) {
+                return res.status(500).json({ error: 'You can not access draft blog' })
+            }
             return res.status(200).json({ blog });
         })
         .catch(err => {
             return res.status(500).json({ error: err.message });
         });
+
+
 });
 
 //hiển thị blog theo trending
@@ -363,7 +368,7 @@ server.get("/trending-blogs", (req, res) => {
 
 server.post("/create-blog", verifyJWT, (req, res) => {
     let authorId = req.user;// lấy thông tin user đã đăng nhập(tức đã được verify)
-    let { title, des, banner, tags, content, draft } = req.body; // lấy cái trường đó từ req.body(tức từ nội dùng của trang)
+    let { title, des, banner, tags, content, draft, id } = req.body; // lấy cái trường đó từ req.body(tức từ nội dùng của trang)
     if (!title.length) {//kiểm tra sự tồn tại của từng trường đảm bảo không để trống
         return res.status(403).json({ error: "You must provide a title" });
     }
@@ -383,26 +388,40 @@ server.post("/create-blog", verifyJWT, (req, res) => {
     }
 
     tags = tags.map(tag => tag.toLowerCase());// chuyển các phần tử tags về chưa thường
-    let blog_id = title.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, "-").trim() + nanoid();// chuyển tiêu đề về dạng slug và thêm id cho nó
-    let blog = new Blog({
-        title, des, banner, content, tags, author: authorId, blog_id, draft: Boolean(draft)//tạo các instance và lưu vào DB
-    })
-    blog.save().then(blog => {//lưu thành công
-        let incrementVal = draft ? 0 : 1;// nếu không tăng số bài đăng là draft(bản thảo) nếu tăng là publish 
-        //Dùng điều kiện authorid = id của client để tìm người người 
-        //sau đó cập nhập số bài viết incrementVal, và push (tức thêm new blog vào list blogs của user)
-        User.findOneAndUpdate({ _id: authorId }, { $inc: { "account_info.total_posts": incrementVal }, $push: { "blogs": blog._id } })
-            .then(user => {
-                return res.status(200).json({ id: blog_id })
-            })
-            .catch(err => {
-                return res.status(500).json({ error: "Failed to update total posts number" })
-            })
+    let blog_id = id || title.replace(/[^a-zA-Z0-9]/g, ' ').replace(/\s+/g, "-").trim() + nanoid();// chuyển tiêu đề về dạng slug và thêm id cho nó
 
-    })
+    if (id) {
+        //finOneAndUpdate(dk tìm, dữ liệu cập nhật, tùy chọn)
+        Blog.findOneAndUpdate({blog_id},{title, des, banner, content, tags, draft: draft ? draft : false})
+        .then(()=>{
+            return res.status(200).json({id:blog_id})
+        })
+        .catch(err=>{
+            return res.status(500).json({error:"Failled to update total posts numer "})
+        })
+
+    }
+    else {
+        let blog = new Blog({
+            title, des, banner, content, tags, author: authorId, blog_id, draft: Boolean(draft)//tạo các instance và lưu vào DB
+        })
+        blog.save().then(blog => {//lưu thành công
+            let incrementVal = draft ? 0 : 1;// nếu không tăng số bài đăng là draft(bản thảo) nếu tăng là publish 
+            //Dùng điều kiện authorid = id của client để tìm người người 
+            //sau đó cập nhập số bài viết incrementVal, và push (tức thêm new blog vào list blogs của user)
+            User.findOneAndUpdate({ _id: authorId }, { $inc: { "account_info.total_posts": incrementVal }, $push: { "blogs": blog._id } })
+                .then(user => {
+                    return res.status(200).json({ id: blog_id })
+                })
+                .catch(err => {
+                    return res.status(500).json({ error: "Failed to update total posts number" })
+                })
+
+        })
         .catch(err => {
             return res.status(500).json({ error: err.message })
         })
+    }
 })
 
 // ========================== KHỞI ĐỘNG SERVER ========================== //

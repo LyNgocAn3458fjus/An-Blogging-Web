@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import logo from "../imgs/logo.png";
 import { Toaster, toast } from "react-hot-toast";
 import Editor, { EditorContext } from "../pages/editor.pages";
@@ -16,12 +16,14 @@ const BlogEditor = () => {
   let { userAuth: { access_token } } = useContext(UserContext);
   let navigate = useNavigate();
   let { blog, blog: { title, banner, content, tags, des }, setBlog, textEditor, setTextEditor, setEditorState } = useContext(EditorContext);
-
+  let {blog_id} = useParams();
+//khởi tạo EditorJS – nhưng cách bạn check isReady và xử lý content khiến nó trở thành nguồn lỗi
   useEffect(() => {
     if (!textEditor.isReady) {
       setTextEditor(new EditorJS({
         holderId: "textEditor",
-        data: content,
+        // Dòng data này đảm bảo EditorJS luôn nhận đúng định dạng nội dung ban đầu để hiển thị.
+        data: Array.isArray(content) ? content[0] : content,
         tools: tools,
         placeholder: "Let's write an awesome story"
       }));
@@ -71,7 +73,8 @@ const BlogEditor = () => {
     if (textEditor.isReady) {
       textEditor.save().then(content => {
         let blogOjt = { title, banner, des, content, tags, draft: true };
-        axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/create-blog", blogOjt, {
+        //dùng  {...blogOjt} copy object,ghi đè thêm blog_id không làm thay đổi dữ liệu gửi lên.
+        axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/create-blog", {...blogOjt, id:blog_id}, {
           headers: { 'Authorization': `Bearer ${access_token}` }
         })
           .then(() => {
@@ -106,7 +109,7 @@ const BlogEditor = () => {
 
       <motion.section {...fadeInUp} className="bg-soft-lavender">
         <div className="mx-auto max-w-[900px] w-full mt-6 p-2">
-          
+
           <motion.div {...bannerMotion} className="relative aspect-video bg-soft-white border border-grey cursor-pointer overflow-hidden rounded-xl">
             <label htmlFor="uploadBanner" className="w-full h-full block relative">
               <img src={banner} className="z-10 w-full h-full object-cover" onError={handleError} />

@@ -35,6 +35,8 @@ const App = () => {
     <UserContext.Provider value={{ userAuth, setUserAuth }}>
       <Routes>
         <Route path="/editor" element={<Editor />} />
+        {/* chỉnh sửa từng blog theo id */}
+        <Route path="/editor/:blog_id" element={<Editor />} />
         <Route path="/" element={<Navbar />}>
           {/* index element dùng để khai báo route mặc định so với route cha là / */}
           {/* element là cái mình muốn hiển thị tại route */}

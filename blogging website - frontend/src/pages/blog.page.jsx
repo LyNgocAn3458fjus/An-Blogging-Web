@@ -11,6 +11,8 @@ import { cardHover, bannerHover, titleHover, authorImageHover, } from "../common
 import { fadeInUp, bannerMotion, titleMotion } from "../common/motion";
 import { getDay } from "../common/date";
 import BlogInteraction from "../components/blog-interaction.component";
+import BlogPostCard from "../components/blog-post.component";
+import BlogContent from "../components/blog-content.component";
 
 
 // Cấu trúc blog mặc định để tránh lỗi undefined
@@ -40,12 +42,15 @@ const BlogPage = () => {
     tags
   } = blog;
   const [similarBlogs, setSimilarBlogs] = useState(null)
+  //quản lí trạng tháy like blog dùng false cho state bật tắt
+  const [isLikeByUser, setLikeByUser] = useState(false)
 
-  // Gọi API lấy blog
+  // Gọi API lấy blog hiện tại và các blog có liên quan
   const fetchBlog = () => {
     axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/get-blog`, { blog_id })
       .then(({ data: { blog } }) => {
         setBlog(blog)
+        console.log(blog.content);
         axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/search-blogs`, { tag: tags[0], limit: 6, eliminate_blog: blog_id })
           .then(({ data }) => {
             setSimilarBlogs(data.blogs);
@@ -55,14 +60,21 @@ const BlogPage = () => {
       })
       .catch(err => {
         console.error(err);
-        setLoading(false); 
+        setLoading(false);
       });
   };
 
   // Fetch lại khi blog_id đổi
   useEffect(() => {
+    resetState();
     fetchBlog();
   }, [blog_id]);
+  // thiết lại lại blog, blog tương tự reset hoàn toàn trang để tránh bị ghi đè, lẫn lộn dữ liệu 
+  const resetState = () => {
+    setBlog(blogStructure);
+    setSimilarBlogs(null)
+    setLoading(true)
+  }
 
   return (
 
@@ -71,7 +83,7 @@ const BlogPage = () => {
         loading ? <Loader />
           :
           // provider nơi phát dữ liệu
-          <BlogContext.Provider value={{ blog, setBlog }}>
+          <BlogContext.Provider value={{ blog, setBlog, isLikeByUser, setLikeByUser }}>
             <div className="max-w-3xl mx-auto px-4 py-12">
               <motion.article
                 {...fadeInUp}
@@ -138,9 +150,37 @@ const BlogPage = () => {
                   >
                     {typeof content === "string"
                       ? content
-                      : "Nội dung đang được cập nhật."}
+                      : ""}
                     <BlogInteraction />
+                    {/* nội dung của mỗi blog sẽ hiển thị ở đây  */}
+                    <div className="my-12  font-gelasio blog-page-content">
+                      {
+                        // có thể crash khúc này
+                        content[0].blocks.map((block,i)=>{
+                          return <div key={i} className="my-4 md:my-8">
+                            <BlogContent block ={block}/>
+                          </div>
+                        })
+                      }
+                    </div>
                     <BlogInteraction />
+                    {/* Hiển thị list blog tương tự của 1 tác giả */}
+                    {
+                      similarBlogs !== null && similarBlogs.length ? <>
+                        <h1 className="text-2xl mt-14 font-medium">Similar Blogs</h1>
+                        {
+                          similarBlogs.map((blog, i) => {
+                            let { author: { personal_info } } = blog;//lấy thông tin tác giả từ bài blog tương tự
+                            return (
+                              <AnimationWrapper key={i} transition={{ duration: 1, delay: i * 0.08 }}>
+                                <BlogPostCard content={blog} author={personal_info} />
+                              </AnimationWrapper>
+                            )
+                          })
+                        }
+
+                      </> : " "
+                    }
                   </div>
                 </div>
               </motion.article>

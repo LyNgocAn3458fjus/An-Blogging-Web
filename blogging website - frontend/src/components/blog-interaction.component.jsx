@@ -1,28 +1,47 @@
 import { BlogContext } from "../pages/blog.page"
 import { useContext, useState, useRef, useEffect } from "react"
+import { Link } from "react-router-dom"
+import { UserContext } from "../App"
+import { Toaster, toast } from 'react-hot-toast'  // <-- import toast
 
-// Component xử lý tương tác với blog: like, comment, share
+
 const BlogInteraction = () => {
 
-    // Lấy dữ liệu blog từ context
-    let {
+    let { blog,
         blog: {
             title,
-            activity: { total_likes, total_comments }
-        }
+            blog_id,
+            activity,
+            activity: { total_likes, total_comments },
+            author: { personal_info: { username: author_username } }
+
+        }, setBlog, isLikeByUser, setLikeByUser
     } = useContext(BlogContext)
 
-    // State điều khiển hiển thị dropdown share (desktop)
+    let { userAuth: { username, access_token } } = useContext(UserContext);
+    // xử lí sự kiện like
+    const handleLike = (e) => {
+        //nếu đăng nhập
+        if (access_token) {
+            //toggle(chuyển qua 2 trạng thái) mỗi lần click
+            setLikeByUser(preVal => !preVal);
+            //nếu user chưa like thì cho phép tăng lại, nếu đã like thì cho phép giảm 1
+            //đây là cấu trúc đặc biệt của toggle mong muốn chưa like bấm nút tặng like, và ngược lại 
+            !isLikeByUser ? total_likes++ : total_likes--;
+            //cập nhập total_likes
+            setBlog({ ...blog, activity: { ...activity, total_likes } });
+            console.log(isLikeByUser)
+        } else {
+            //chưa dăng nhập
+            toast.error("Please log in to like this blog post")
+
+        }
+    }
     const [showShare, setShowShare] = useState(false)
-
-    // Ref dùng để detect click ngoài dropdown share
-    const shareRef = useRef()
-
-    // Encode URL & title để dùng cho link share
+    const shareRef = useRef(null)
     const blogUrl = encodeURIComponent(window.location.href)
     const blogTitle = encodeURIComponent(title)
 
-    // Đóng dropdown share khi click ra ngoài
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) {
@@ -33,9 +52,6 @@ const BlogInteraction = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside)
     }, [])
 
-    // Xử lý click nút share:
-    // - Mobile: dùng Web Share API
-    // - Desktop: hiển thị dropdown share
     const handleShareClick = async () => {
         if (navigator.share) {
             try {
@@ -44,71 +60,71 @@ const BlogInteraction = () => {
                     text: title,
                     url: window.location.href
                 })
-            } catch (err) {
-                console.log("Share cancelled")
+            } catch {
+                toast.error("Share cancelled") // <-- replace console.log
             }
         } else {
             setShowShare(prev => !prev)
         }
     }
 
-    // Instagram (desktop):
-    // - Copy link bài viết
-    // - Mở Instagram để người dùng dán link
     const handleInstagramShare = async () => {
         try {
             await navigator.clipboard.writeText(window.location.href)
             window.open("https://www.instagram.com/", "_blank")
-            alert("I've copied the article link. Paste it into your bio or Instagram story!")
+            toast.success("I've copied the article link. Paste it into your bio or Instagram story!") // <-- replace alert
             setShowShare(false)
         } catch {
-            alert("The link cannot be copied. Please copy it manually.")
+            toast.error("The link cannot be copied. Please copy it manually.") // <-- replace alert
         }
     }
 
     return (
         <>
-            <hr className="border-gray-200 my-8" />
+            <Toaster />
+            <hr className="border-gray-200 my-2" />
 
             <div className="flex items-center justify-between">
 
-                {/* Khu vực Like & Comment */}
                 <div className="flex items-center gap-6">
-
-                    {/* Like */}
-                    <button className="group flex items-center gap-2 text-dark-grey hover:text-rose-700 transition">
+                    <button className={"group flex items-center gap-2 text-dark-grey hover:text-rose-700 transition" + (isLikeByUser ? "bg-red/20 text-red" : "bg-white")}
+                        onClick={handleLike}>
                         <span className="w-10 h-10 rounded-full flex items-center justify-center bg-red-50 group-hover:bg-red-100 transition">
-                            <i className="fi fi-rr-heart text-lg"></i>
+                            <i className={"fi " + (isLikeByUser ? "fi-sr-heart" : "fi-rr-heart") + " text-lg"}></i>
                         </span>
                         <span className="text-base font-medium">{total_likes}</span>
                     </button>
 
-                    {/* Comment */}
                     <button className="group flex items-center gap-2 text-dark-grey hover:text-blue-500 transition">
                         <span className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 group-hover:bg-blue-100 transition">
                             <i className="fi fi-rr-comment-dots text-lg"></i>
                         </span>
                         <span className="text-base font-medium">{total_comments}</span>
                     </button>
-
                 </div>
 
-                {/* Khu vực Share */}
                 <div className="relative" ref={shareRef}>
+                    <div className="flex items-center gap-3">
+                        {username === author_username && (
+                            <Link
+                                to={`/editor/${blog_id}`}
+                                className="text-sm underline hover:text-purple"
+                            >
+                                Edit
+                            </Link>
+                        )}
 
-                    {/* Nút Share chính */}
-                    <button
-                        onClick={handleShareClick}
-                        className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition"
-                    >
-                        <i className="fi fi-rr-share-square text-lg"></i>
-                    </button>
+                        <button
+                            onClick={handleShareClick}
+                            className="w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 hover:bg-gray-200 transition"
+                        >
+                            <i className="fi fi-rr-share-square text-lg"></i>
+                        </button>
+                    </div>
 
-                    {/* Dropdown share (chỉ dùng cho desktop) */}
                     {showShare && (
                         <div className="absolute right-0 bottom-full mb-3 w-44 bg-white rounded-xl shadow-lg border p-2 z-50">
 
-                            {/* Share Facebook */}
                             <a
                                 onClick={() => setShowShare(false)}
                                 href={`https://www.facebook.com/sharer/sharer.php?u=${blogUrl}`}
@@ -120,7 +136,6 @@ const BlogInteraction = () => {
                                 <span>Facebook</span>
                             </a>
 
-                            {/* Share Twitter */}
                             <a
                                 onClick={() => setShowShare(false)}
                                 href={`https://twitter.com/intent/tweet?text=${blogTitle}&url=${blogUrl}`}
@@ -132,7 +147,6 @@ const BlogInteraction = () => {
                                 <span>Twitter</span>
                             </a>
 
-                            {/* Share Instagram */}
                             <button
                                 onClick={handleInstagramShare}
                                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"
@@ -144,8 +158,9 @@ const BlogInteraction = () => {
                         </div>
                     )}
                 </div>
-
             </div>
+
+            <hr className="border-gray-200 my-2" />
         </>
     )
 }
