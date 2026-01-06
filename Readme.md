@@ -1,17 +1,2 @@
-# AN-BLOG-WEBSITE
-This website features include -
-1. Modern Blog Editor using Editor JS.
-2. Google Authentication for Users
-3. Dynamic Blog Pages on dynamic urls.
-4. Search Page for Searching Blogs & users.
-5. Dedicated Users Profile with thier social links and written blogs.
-6. Dedicated dashboard to manage blogs either published or draft.
-7. Blog Post Analytics, editable and deletable.
-8. Like interaction on Blogs with feature to comment on the blog.
-9. Reply to comments. ( A nested Comment System )
-10. Every interaction on site stores as a notification for their respective users.
-11. Recent notification highlight separating them from old notifications.
-12. Edit profile option to update social links, bio and username
-13. Also user can change login password from settings.
-14. Its mobile responsive with modern design + fade in animation on pages.
-And much more.
+AN-BLOG-WEBSITE
+A modern, feature-rich blogging platform built with a focus on performance, usability, and clean design. It includes a custom blog editor powered by Editor.js, Google authentication, and dynamic blog pages with unique URLs. The platform offers advanced features such as blog & user search, a personal content management dashboard, blog analytics, and full interaction support including likes, comments, and nested replies. All activities are tracked through a smart notification system that highlights recent updates. Users can manage their profiles, social links, and account settings with ease. The application is fully mobile-responsive, enhanced with modern UI elements and smooth fade-in animations for a polished user experience. Link video demo: https://youtu.be/6OO-6Ea8Z6I
