@@ -1,3 +1,4 @@
+//model của mongodb quản lí các thao tác liek,reply and comment
 import mongoose, { Schema } from "mongoose";
 
 const notificationSchema = mongoose.Schema({

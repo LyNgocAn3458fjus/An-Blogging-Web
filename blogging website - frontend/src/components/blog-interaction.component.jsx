@@ -1,3 +1,4 @@
+import axios from "axios"
 import { BlogContext } from "../pages/blog.page"
 import { useContext, useState, useRef, useEffect } from "react"
 import { Link } from "react-router-dom"
@@ -9,6 +10,7 @@ const BlogInteraction = () => {
 
     let { blog,
         blog: {
+            _id,
             title,
             blog_id,
             activity,
@@ -19,8 +21,27 @@ const BlogInteraction = () => {
     } = useContext(BlogContext)
 
     let { userAuth: { username, access_token } } = useContext(UserContext);
+
+    useEffect(()=>{
+        if(access_token){
+            axios.post(import.meta.env.VITE_SERVER_DOMAIN +"/isliked-by-user",{ _id },{
+                headers:{
+                    'Authorization':`Bearer ${access_token}`
+                }
+            })
+            .then(({data:{result}})=>{
+                //ép kiểu true or false
+               setLikeByUser(Boolean(result))
+            })
+            .catch(err=>{
+                console.log(err)
+            })
+        }
+    },[])
+
+
     // xử lí sự kiện like
-    const handleLike = (e) => {
+    const handleLike = () => {
         //nếu đăng nhập
         if (access_token) {
             //toggle(chuyển qua 2 trạng thái) mỗi lần click
@@ -30,7 +51,20 @@ const BlogInteraction = () => {
             !isLikeByUser ? total_likes++ : total_likes--;
             //cập nhập total_likes
             setBlog({ ...blog, activity: { ...activity, total_likes } });
-            console.log(isLikeByUser)
+            //gọi hàm lấy dử liệu từ server
+            //headers là phần xác thực người dùng bằng access_token(mã đăng nhập)
+            axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/like-blog", { _id, isLikeByUser }, {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`
+                }
+            })
+                .then(({ data }) => {
+                    console.log(data);
+                })
+                .catch(err => {
+                    console.log(err);
+                })
+
         } else {
             //chưa dăng nhập
             toast.error("Please log in to like this blog post")

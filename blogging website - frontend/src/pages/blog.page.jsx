@@ -13,7 +13,7 @@ import { getDay } from "../common/date";
 import BlogInteraction from "../components/blog-interaction.component";
 import BlogPostCard from "../components/blog-post.component";
 import BlogContent from "../components/blog-content.component";
-
+import CommentsContainer from "../components/comments.component";
 
 // Cấu trúc blog mặc định để tránh lỗi undefined
 export const blogStructure = {
@@ -35,7 +35,10 @@ const BlogPage = () => {
   // State lưu blog & loading
   const [blog, setBlog] = useState(blogStructure);
   const [loading, setLoading] = useState(true);
-
+  //State lưu trữ trạng thái comment 
+  const [commentsWrapper, setCommentsWrapper] = useState(false);
+  //State lưu trữ trạng thái comment gốc khi chưa có xự phản hồi của comment con  
+  const [totalParentCommentsLoaded, setTotalParentCommentsLoaded] = useState(0)// chưa load comment nào
   // Tách dữ liệu blog (an toàn)
   const { title, content, banner, author: { personal_info: { fullname, username: author_username, profile_img } = {} },
     publishedAt,
@@ -54,7 +57,7 @@ const BlogPage = () => {
         axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/search-blogs`, { tag: tags[0], limit: 6, eliminate_blog: blog_id })
           .then(({ data }) => {
             setSimilarBlogs(data.blogs);
-            console.log(data.blogs)
+            // console.log(data.blogs)
           })
         setLoading(false);
       })
@@ -72,8 +75,11 @@ const BlogPage = () => {
   // thiết lại lại blog, blog tương tự reset hoàn toàn trang để tránh bị ghi đè, lẫn lộn dữ liệu 
   const resetState = () => {
     setBlog(blogStructure);
-    setSimilarBlogs(null)
-    setLoading(true)
+    setSimilarBlogs(null);
+    setLoading(true);
+    setLikeByUser(false);
+    setCommentsWrapper(false);
+    setTotalParentCommentsLoaded(0);
   }
 
   return (
@@ -83,7 +89,9 @@ const BlogPage = () => {
         loading ? <Loader />
           :
           // provider nơi phát dữ liệu
-          <BlogContext.Provider value={{ blog, setBlog, isLikeByUser, setLikeByUser }}>
+          <BlogContext.Provider value={{ blog, setBlog, isLikeByUser, setLikeByUser, commentsWrapper, setCommentsWrapper, totalParentCommentsLoaded, setTotalParentCommentsLoaded }}>
+            {/* khung chat comment */}
+            <CommentsContainer/>
             <div className="max-w-3xl mx-auto px-4 py-12">
               <motion.article
                 {...fadeInUp}
@@ -156,9 +164,9 @@ const BlogPage = () => {
                     <div className="my-12  font-gelasio blog-page-content">
                       {
                         // có thể crash khúc này
-                        content[0].blocks.map((block,i)=>{
+                        content[0].blocks.map((block, i) => {
                           return <div key={i} className="my-4 md:my-8">
-                            <BlogContent block ={block}/>
+                            <BlogContent block={block} />
                           </div>
                         })
                       }

@@ -17,6 +17,7 @@ import { verify } from 'crypto';
 import { error, timeLog } from 'console';
 import Blog from './Schema/Blog.js'
 import { title } from 'process';
+import Notification from './Schema/Notification.js'
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -364,6 +365,56 @@ server.get("/trending-blogs", (req, res) => {
             return res.status(500).json({ error: err.message })
         })
 })
+//xử lí like blog
+server.post("/like-blog", verifyJWT, (req, res) => {
+    let user_id = req.user; // nếu verifyJWT gán đúng id
+    //lấy id của user đã đăng nhập
+    let { _id, isLikeByUser } = req.body; // nhận id từ bài blog, event click từ user 
+    let incrementVal = !isLikeByUser ? 1 : -1;
+    //tìm kiếm id click và cập nhật tổng số like
+    Blog.findOneAndUpdate({ _id }, { $inc: { "activity.total_likes": incrementVal } })
+        .then(blog => {
+            if (!isLikeByUser) {
+                //hàm khởi tạo(contructor) truyền các dữ liệu sau vào
+                let like = new Notification({
+                    type: "like",
+                    blog: _id,
+                    notification_for: blog.author,
+                    user: user_id
+                }) //gọi hàm thông báo khi like
+                like.save().then(notification => {
+                    return res.status(200).json({ liked_by_user: true })
+                })
+            }
+            //nếu đã like
+            else {
+                //findOneAndUpdate(tìm document thỏa đk) xóa khỏi db  
+                Notification.findOneAndDelete({ user: user_id, blog: _id, type: "like" })
+                .then(data=>{
+                    return res.status(200).json({liked_by_user:false})
+                })
+                .catch(err=>{
+                    return res.status(500).json({error:err.message})
+                })
+            }
+        })
+
+})
+//lấy thông tin khi user like blog
+server.post("/isliked-by-user", verifyJWT, (req, res) => {
+    let user_id = req.user//lấy user_id đã được verify
+    let { _id } = req.body; //id của like blog khi user click
+    //exists() kiểm tra document(user,like,blog) có tổn tại hay khôgn
+    Notification.exists({ user: user_id, type: "like", blog: _id })
+        .then((result) => {
+            return res.status(200).json({ result })
+        })
+        .catch(err => {
+            return res.status(500).json({ error: err.message })
+        })
+    //result là toàn bộ thông tin của thao tác click đó 
+})
+
 
 
 server.post("/create-blog", verifyJWT, (req, res) => {
@@ -392,13 +443,13 @@ server.post("/create-blog", verifyJWT, (req, res) => {
 
     if (id) {
         //finOneAndUpdate(dk tìm, dữ liệu cập nhật, tùy chọn)
-        Blog.findOneAndUpdate({blog_id},{title, des, banner, content, tags, draft: draft ? draft : false})
-        .then(()=>{
-            return res.status(200).json({id:blog_id})
-        })
-        .catch(err=>{
-            return res.status(500).json({error:"Failled to update total posts numer "})
-        })
+        Blog.findOneAndUpdate({ blog_id }, { title, des, banner, content, tags, draft: draft ? draft : false })
+            .then(() => {
+                return res.status(200).json({ id: blog_id })
+            })
+            .catch(err => {
+                return res.status(500).json({ error: "Failled to update total posts numer " })
+            })
 
     }
     else {
@@ -418,9 +469,9 @@ server.post("/create-blog", verifyJWT, (req, res) => {
                 })
 
         })
-        .catch(err => {
-            return res.status(500).json({ error: err.message })
-        })
+            .catch(err => {
+                return res.status(500).json({ error: err.message })
+            })
     }
 })
 
