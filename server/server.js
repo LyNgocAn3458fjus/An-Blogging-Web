@@ -18,6 +18,8 @@ import { error, timeLog } from 'console';
 import Blog from './Schema/Blog.js'
 import { title } from 'process';
 import Notification from './Schema/Notification.js'
+import Comment from './Schema/Comment.js'
+import { json } from 'stream/consumers';
 
 // ========================== CẤU HÌNH SERVER ========================== //
 const server = express();
@@ -390,12 +392,12 @@ server.post("/like-blog", verifyJWT, (req, res) => {
             else {
                 //findOneAndUpdate(tìm document thỏa đk) xóa khỏi db  
                 Notification.findOneAndDelete({ user: user_id, blog: _id, type: "like" })
-                .then(data=>{
-                    return res.status(200).json({liked_by_user:false})
-                })
-                .catch(err=>{
-                    return res.status(500).json({error:err.message})
-                })
+                    .then(data => {
+                        return res.status(200).json({ liked_by_user: false })
+                    })
+                    .catch(err => {
+                        return res.status(500).json({ error: err.message })
+                    })
             }
         })
 
@@ -415,6 +417,112 @@ server.post("/isliked-by-user", verifyJWT, (req, res) => {
     //result là toàn bộ thông tin của thao tác click đó 
 })
 
+//thêm comment 
+server.post("/add-comment", verifyJWT, (req, res) => {
+
+    // id user lấy từ middleware verifyJWT
+    let user_id = req.user;
+
+    // lấy dữ liệu gửi lên từ client
+    let { _id, comment, blog_author } = req.body;
+
+    // validate comment rỗng
+    if (!comment.length) {
+        return res.status(403).json({ error: "Write something to leave" });
+    }
+
+    // tạo 1 document comment mới
+    let commentObj = new Comment({
+        blog_id: _id,          // id bài blog
+        blog_author,           // tác giả blog
+        comment,               // nội dung comment
+        commented_by: user_id,  // người comment
+    });
+
+    // lưu comment vào MongoDB
+    commentObj.save()
+        .then(commentFile => {
+
+            // destructuring dữ liệu từ document vừa lưu
+            let { comment, commentedAt, children } = commentFile;
+
+            // cập nhật blog:
+            // - push id comment vào mảng comments
+            // - tăng tổng số comment
+            // - tăng tổng comment cha
+            Blog.findOneAndUpdate(
+                { _id },
+                {
+                    $push: { comments: commentFile._id },
+                    $inc: {
+                        "activity.total_comments": 1,
+                        "activity.total_parent_comments": 1
+                    }
+                }
+            ).then(() => {
+                console.log("New comment created");
+            });
+
+            // tạo notification cho tác giả blog
+            let notificationObj = {
+                type: "comment",
+                blog: _id,                 // ❗ sửa "_id" string → biến _id
+                notification_for: blog_author,
+                user: user_id,
+                comment: commentFile._id
+            };
+
+            new Notification(notificationObj)
+                .save()
+                .then(() => console.log("New notification created"));
+
+            // trả dữ liệu cần thiết cho frontend
+            return res.status(200).json({
+                comment,
+                commentedAt,
+                _id: commentFile._id,
+                user_id,
+                children
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            return res.status(500).json({ error: "Failed to add comment" });
+        });
+});
+// fetching comment
+server.post("/get_blog_comments", (req, res) => {
+
+    // lấy blog_id và số comment cần bỏ qua
+    let { blog_id, skip } = req.body;
+
+    // số comment tối đa mỗi lần fetch
+    let maxLimit = 5;
+
+    Comment.find({
+        blog_id,        // comment thuộc blog này
+        isReply: false  // chỉ lấy comment cha
+    })
+        // lấy thông tin user đã comment
+        .populate(
+            "commented_by",
+            "personal_info.username personal_info.fullname personal_info.profile_img"
+        )
+        // bỏ qua 'skip' comment
+        .skip(skip)
+        // giới hạn số lượng comment
+        .limit(maxLimit)
+        // sắp xếp comment mới nhất lên trước
+        .sort({ commentedAt: -1 })
+        .then(comment => {
+            // trả comment về frontend
+            return res.status(200).json(comment);
+        })
+        .catch(err => {
+            // lỗi server
+            return res.status(500).json({ error: err.message });
+        });
+});
 
 
 server.post("/create-blog", verifyJWT, (req, res) => {
