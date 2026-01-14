@@ -4,10 +4,11 @@ import { BlogContext } from "../pages/blog.page";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 
+// nơi nhập cmt
 const CommentField = ({ action, index, replyingTo, setReplying }) => {
 
   // 🔹 Lấy dữ liệu blog + hàm cập nhật từ BlogContext
-  const {
+  let {
     blog,
     blog: {
       _id, // id bài blog
@@ -52,13 +53,13 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
     try {
       // 🔹 Gửi comment lên server
       const { data } = await axios.post(
-        `${import.meta.env.VITE_SERVER_DOMAIN}/add-comment`, {
-        _id, // blog id
-        blog_author,
-        comment,
-        replying_to: replyingTo // nếu là reply
-
-      },
+        `${import.meta.env.VITE_SERVER_DOMAIN}/add-comment`,
+        {
+          _id, // blog id
+          blog_author,
+          comment,
+          replying_to: replyingTo // nếu là reply
+        },
         {
           headers: {
             Authorization: `Bearer ${access_token}`
@@ -73,27 +74,40 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
       data.commented_by = {
         personal_info: { username, profile_img, fullname }
       };
-      let newCommentArr;
-      // 🔹 Level comment (0 = comment, 1 = reply)
-      data.childrenLevel = replyingTo ? 1 : 0;
 
+      // 🔹 CLONE commentsArr để tránh mutate state
+      let updatedComments = [...commentsArr];
 
-
+      /* ===================== REPLY ===================== */
       if (replyingTo) {
-        // 🔹 Nếu là reply → thêm vào comment cha
-        commentsArr[index].children.push(data._id);
+
+        // clone comment cha
+        const parentComment = { ...updatedComments[index] };
+
+        // clone children array
+        parentComment.children = [
+          ...(parentComment.children || []),
+          data._id
+        ];
+
+        parentComment.isReplyLoaded = true;
+
+        // update parent vào mảng
+        updatedComments[index] = parentComment;
+
+        // set level cho reply
+        data.childrenLevel = (parentComment.childrenLevel || 0) + 1;
         data.parentIndex = index;
 
-        commentsArr[index].isReplyLoaded = true;
-
-        // 🔹 Chèn reply ngay sau comment cha
-        commentsArr.splice(index + 1, 0, data);
-        newCommentArr = [...commentsArr];
+        // insert reply ngay sau parent
+        updatedComments.splice(index + 1, 0, data);
 
         setReplying(false);
-      } else {
-        // 🔹 Nếu là comment mới → thêm lên đầu
-        newCommentArr = [data, ...commentsArr];
+      }
+      /* ===================== NEW COMMENT ===================== */
+      else {
+        data.childrenLevel = 0;
+        updatedComments = [data, ...updatedComments];
       }
 
       // 🔹 Chỉ tăng parent comment khi không phải reply
@@ -102,7 +116,7 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
       // 🔹 Cập nhật blog state
       setBlog({
         ...blog,
-        comments: { ...comments, results: newCommentArr },
+        comments: { ...comments, results: updatedComments },
         activity: {
           ...activity,
           total_comments: total_comments + 1,
@@ -117,6 +131,7 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
       );
 
       toast.success(replyingTo ? "Reply added" : "Comment added");
+
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.error || "Failed to add comment");

@@ -14,6 +14,7 @@ import BlogInteraction from "../components/blog-interaction.component";
 import BlogPostCard from "../components/blog-post.component";
 import BlogContent from "../components/blog-content.component";
 import CommentsContainer from "../components/comments.component";
+import { fetchComments } from "../components/comments.component";
 
 // Cấu trúc blog mặc định để tránh lỗi undefined
 export const blogStructure = {
@@ -52,13 +53,13 @@ const BlogPage = () => {
   // Gọi API lấy blog hiện tại và các blog có liên quan
   const fetchBlog = () => {
     axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/get-blog`, { blog_id })
-      .then(({ data: { blog } }) => {
+      .then(async ({ data: { blog } }) => {
+        blog.comments = await fetchComments({ blog_id: blog._id, setParentCommentCountFun: setTotalParentCommentsLoaded })
         setBlog(blog)
         console.log(blog.content);
         axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/search-blogs`, { tag: tags[0], limit: 6, eliminate_blog: blog_id })
           .then(({ data }) => {
             setSimilarBlogs(data.blogs);
-            // console.log(data.blogs)
           })
         setLoading(false);
       })
@@ -92,7 +93,7 @@ const BlogPage = () => {
           // provider nơi phát dữ liệu
           <BlogContext.Provider value={{ blog, setBlog, isLikeByUser, setLikeByUser, commentsWrapper, setCommentsWrapper, totalParentCommentsLoaded, setTotalParentCommentsLoaded }}>
             {/* khung chat comment */}
-            <CommentsContainer/>
+            <CommentsContainer />
             <div className="max-w-3xl mx-auto px-4 py-12">
               <motion.article
                 {...fadeInUp}
