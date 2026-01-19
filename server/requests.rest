@@ -1,6 +1,6 @@
-POST http://localhost:3000/get-blog
+POST http://localhost:3000/get_blog_comments
 Content-Type: application/json
 
 {
-    "blog_id":"TechnologyQ1xFAgtd9tgsDEJLKnWuE"
+     "blog_id": ""
 }

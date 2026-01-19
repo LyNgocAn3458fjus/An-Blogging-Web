@@ -5,118 +5,80 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 
 // nơi nhập cmt
-const CommentField = ({ action, index, replyingTo, setReplying }) => {
-
-  // 🔹 Lấy dữ liệu blog + hàm cập nhật từ BlogContext
+const CommentField = ({ action, index = undefined, replyingTo = undefined, setReplying }) => {
   let {
     blog,
     blog: {
-      _id, // id bài blog
-      author: { _id: blog_author }, // id tác giả blog
-      comments = { results: [] }, // ⚠️ default để tránh undefined
+      _id,
+      author: { _id: blog_author },
+      comments,
+      comments: { results: commentsArr },
       activity,
       activity: { total_comments, total_parent_comments }
     },
-    setBlog, // cập nhật blog state
-    setTotalParentCommentsLoaded // cập nhật số comment cha đã load
+    setBlog,
+    setTotalParentCommentsLoaded
   } = useContext(BlogContext);
 
-  // 🔹 Đảm bảo commentsArr luôn là mảng
-  const commentsArr = comments.results || [];
-
-  // 🔹 Lấy thông tin user đăng nhập
-  const {
+  let {
     userAuth: { access_token, username, fullname, profile_img }
   } = useContext(UserContext);
 
   // 🔹 State lưu nội dung comment
   const [comment, setComment] = useState("");
 
-  // 🔹 State loading khi đang gửi comment
+  // ✅ THÊM STATE LOADING (KHÔNG ẢNH HƯỞNG LOGIC)
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ================= HANDLE SUBMIT COMMENT =================
-  const handleComment = async () => {
-
-    // ❌ Chưa đăng nhập
+  const handleComment = () => {
     if (!access_token) {
       return toast.error("Please log in to comment");
     }
-
-    // ❌ Comment rỗng
     if (!comment.trim().length) {
       return toast.error("Write something to leave a comment");
     }
 
-    setIsSubmitting(true);
+    if (isSubmitting) return; // ✅ chặn spam click
+    setIsSubmitting(true);    // ✅ bật loading
 
-    try {
-      // 🔹 Gửi comment lên server
-      const { data } = await axios.post(
-        `${import.meta.env.VITE_SERVER_DOMAIN}/add-comment`,
-        {
-          _id, // blog id
-          blog_author,
-          comment,
-          replying_to: replyingTo // nếu là reply
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`
-          }
+    axios.post(
+      `${import.meta.env.VITE_SERVER_DOMAIN}/add-comment`,
+      { _id, blog_author, comment, replying_to: replyingTo },
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`
         }
-      );
-
-      // 🔹 Reset textarea
+      }
+    )
+    .then(({ data }) => {
+      setIsSubmitting(false); // ✅ tắt loading
       setComment("");
 
-      // 🔹 Gắn info user cho comment mới (update UI ngay)
+      // 🔹 Gắn info user cho comment mới
       data.commented_by = {
         personal_info: { username, profile_img, fullname }
       };
 
-      // 🔹 CLONE commentsArr để tránh mutate state
-      let updatedComments = [...commentsArr];
+      let newCommentArr;
 
-      /* ===================== REPLY ===================== */
       if (replyingTo) {
-
-        // clone comment cha
-        const parentComment = { ...updatedComments[index] };
-
-        // clone children array
-        parentComment.children = [
-          ...(parentComment.children || []),
-          data._id
-        ];
-
-        parentComment.isReplyLoaded = true;
-
-        // update parent vào mảng
-        updatedComments[index] = parentComment;
-
-        // set level cho reply
-        data.childrenLevel = (parentComment.childrenLevel || 0) + 1;
+        commentsArr[index].children.push(data._id);
+        data.childrenLevel = commentsArr[index].childrenLevel + 1;
         data.parentIndex = index;
-
-        // insert reply ngay sau parent
-        updatedComments.splice(index + 1, 0, data);
-
+        commentsArr[index].isReplyLoaded = true;
+        commentsArr.splice(index + 1, 0, data);
+        newCommentArr = commentsArr;
         setReplying(false);
-      }
-      /* ===================== NEW COMMENT ===================== */
-      else {
+      } else {
         data.childrenLevel = 0;
-        updatedComments = [data, ...updatedComments];
+        newCommentArr = [data, ...commentsArr];
       }
 
-      // 🔹 Chỉ tăng parent comment khi không phải reply
-      const parentCommentIncrementVal = replyingTo ? 0 : 1;
+      let parentCommentIncrementVal = replyingTo ? 0 : 1;
 
-      // 🔹 Cập nhật blog state
       setBlog({
         ...blog,
-        comments: { ...comments, results: updatedComments },
+        comments: { ...comments, results: newCommentArr },
         activity: {
           ...activity,
           total_comments: total_comments + 1,
@@ -125,39 +87,31 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
         }
       });
 
-      // 🔹 Cập nhật số parent comment đã load
       setTotalParentCommentsLoaded(
         preVal => preVal + parentCommentIncrementVal
       );
-
-      toast.success(replyingTo ? "Reply added" : "Comment added");
-
-    } catch (err) {
-      console.error(err);
-      toast.error(err.response?.data?.error || "Failed to add comment");
-    } finally {
-      setIsSubmitting(false);
-    }
+    })
+    .catch(err => {
+      setIsSubmitting(false); // ✅ đảm bảo không xoay vĩnh viễn
+      console.log(err);
+    });
   };
 
-  // ================= UI =================
   return (
     <div className="space-y-3">
-
-      {/* 🔹 Textarea nhập comment */}
       <textarea
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder={
           action === "Reply" ? "Write a reply..." : "Write a comment..."
         }
-        className="w-full p-4 border border-gray-200 rounded-xl resize-none focus:outline-none focus:border-purple focus:ring-2 focus:ring-purple/20 transition"
+        className="w-full p-4 border border-gray-200 rounded-xl resize-none
+                   focus:outline-none focus:border-purple
+                   focus:ring-2 focus:ring-purple/20 transition"
         rows={3}
       />
 
       <div className="flex gap-2 justify-end">
-
-        {/* 🔹 Nút cancel chỉ hiện khi reply */}
         {action === "Reply" && (
           <button
             onClick={() => setReplying(false)}
@@ -167,11 +121,13 @@ const CommentField = ({ action, index, replyingTo, setReplying }) => {
           </button>
         )}
 
-        {/* 🔹 Nút submit comment */}
         <button
           onClick={handleComment}
           disabled={isSubmitting}
-          className="px-6 py-2 bg-black text-white rounded-full hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          className="px-6 py-2 bg-black text-white rounded-full
+                     hover:bg-gray-800 transition
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     flex items-center gap-2"
         >
           {isSubmitting && (
             <i className="fi fi-rr-spinner animate-spin"></i>

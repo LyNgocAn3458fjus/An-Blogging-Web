@@ -9,23 +9,6 @@ import axios from "axios";
 // Component hiển thị 1 comment (cha hoặc con)
 const CommentCard = ({ index, leftVal, commentData }) => {
 
-  /* ===================== BLOG CONTEXT ===================== */
-  const {
-    blog,
-    blog: {
-      comments,
-      comments: { results: commentsArr },
-      activity,
-      activity: { total_parent_comments },
-      author: { personal_info: { username: blog_author } }
-    },
-    setBlog,
-    setTotalParentCommentsLoaded
-  } = useContext(BlogContext);
-
-  /* ===================== USER CONTEXT ===================== */
-  const { userAuth: { access_token, username } } = useContext(UserContext);
-
   /* ===================== COMMENT DATA ===================== */
   let {
     commented_by: {
@@ -38,131 +21,128 @@ const CommentCard = ({ index, leftVal, commentData }) => {
     commentedAt,
     comment,
     _id,
-    children,
-    parent // ⭐ QUAN TRỌNG: dùng cho logic
+    children
   } = commentData;
+  /* ===================== BLOG CONTEXT ===================== */
+  // let { blog,
+  //   blog: { comments, activity: { total_parent_comments }, comments: { results: commentsArr }, author: { personal_info: { username: blog_author } } }, setBlog, setTotalParentCommentsLoaded } = useContext(BlogContext);
 
+let {
+  blog,
+  blog: {
+    comments,
+    comments: { results: commentsArr },
+    activity,
+    activity: { total_parent_comments },
+    author: { personal_info: { username: blog_author } }
+  },
+  setBlog,
+  setTotalParentCommentsLoaded
+} = useContext(BlogContext);
+
+
+  /* ===================== USER CONTEXT ===================== */
+  let { userAuth: { access_token, username } } = useContext(UserContext);
   /* ===================== LOCAL STATE ===================== */
   const [isReplying, setReplying] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const getParentIndex = () => {
+    let startingPoint = index - 1;
+    try {
+      while (commentsArr[startingPoint].childrenLevel > commentData.childrenLevel) {
+        startingPoint--;
+      }
+    }
+    catch {
+      startingPoint = undefined;
+    }
+    return startingPoint;
+  }
 
   /* ===================== REPLY ===================== */
+  const removeCommentsCard = (startingPoint, isDelete = false) => {
+    if (commentsArr[startingPoint]) {
+      while (commentsArr[startingPoint].childrenLevel > commentData.childrenLevel) {
+        commentsArr.splice(startingPoint, 1);
+        if (!commentsArr[startingPoint]) {
+          break;
+        }
+      }
+    }
+
+    if (isDelete) {
+      let parentIndex = getParentIndex();
+      if (parentIndex !== undefined) {
+        commentsArr[parentIndex].children = commentsArr[parentIndex].children.filter(child => child !== _id)
+        if (!commentsArr[parentIndex].children.length) {
+          commentsArr[parentIndex].isReplyLoaded = false;
+        }
+      }
+      commentsArr.splice(index, 1);
+    }
+    if (commentData.childrenLevel == 0 && isDelete) {
+      setTotalParentCommentsLoaded(preVal => preVal - 1)
+    }
+    setBlog({
+  ...blog,
+  comments: { results: commentsArr },
+  activity: {
+    ...activity,
+    total_comments: activity.total_comments - 1,
+    total_parent_comments:
+      total_parent_comments -
+      (commentData.childrenLevel === 0 && isDelete ? 1 : 0)
+  }
+})
+
+  }
+
+  const loadReplies = ({ skip = 0 }) => {
+    if (children.length) {
+      hideReplies();
+      axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/get-replies`, { _id, skip })
+        .then(({ data: { replies } }) => {
+          commentData.isReplyLoaded = true;
+          for (let i = 0; i < replies.length; i++) {
+            replies[i].childrenLevel = commentData.childrenLevel + 1;
+            commentsArr.splice(index + 1 + i + skip, 0, replies[i])
+          }
+          setBlog({ ...blog, comments: { ...comments, results: commentsArr } })
+        })
+        .catch(err => {
+          console.log(err)
+        })
+    }
+  }
+
+  const hideReplies = () => {
+    commentData.isReplyLoaded = false;
+    removeCommentsCard(index + 1)
+  }
+
+
   const handleReplyClick = () => {
     if (!access_token) {
       return toast.error("Please log in to reply");
     }
-    setReplying(prev => !prev);
+    setReplying(preVal => !preVal);
   };
 
-  /* ===================== DELETE COMMENT ===================== */
-  const handleDeleteComment = async () => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
-
-    setIsDeleting(true);
-
-    try {
-      await axios.post(
-        `${import.meta.env.VITE_SERVER_DOMAIN}/delete-comment`,
-        { _id },
-        {
-          headers: {
-            Authorization: `Bearer ${access_token}`
-          }
+  const deleteComment = (e) => {
+    e.target.setAttribute("disabled", true);
+    axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/delete-comment", { _id },
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`
         }
-      );
-
-      // remove khỏi mảng
-      commentsArr.splice(index, 1);
-
-      // ✅ FIX: logic dựa vào parent (KHÔNG dựa childrenLevel)
-      const parentCommentDecrement = parent ? 0 : 1;
-
-      setBlog({
-        ...blog,
-        comments: { ...comments, results: commentsArr },
-        activity: {
-          ...activity,
-          total_comments: activity.total_comments - 1,
-          total_parent_comments:
-            total_parent_comments - parentCommentDecrement
-        }
-      });
-
-      setTotalParentCommentsLoaded(
-        prev => prev - parentCommentDecrement
-      );
-
-      toast.success("Comment deleted");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to delete comment");
-    } finally {
-      setIsDeleting(false);
-    }
+      })
+      .then(() => {
+        e.target.removeAttribute("disabled");
+        removeCommentsCard(index + 1, true);// mới thêm vô có thể sai 
+      })
+      .catch(err => {
+        console.log(err)
+      })
   };
-
-  /* ===================== LOAD / HIDE REPLIES ===================== */
-  /* ===================== LOAD / HIDE REPLIES ===================== */
-const loadReplies = async () => {
-
-  // ================= HIDE REPLIES =================
-  if (commentData.isReplyLoaded) {
-    commentData.isReplyLoaded = false;
-
-    const parentLevel = commentData.childrenLevel || 0;
-
-    // ✅ FIX: chỉ xóa reply LIÊN TIẾP của comment hiện tại
-    let removeCount = 0;
-    for (let i = index + 1; i < commentsArr.length; i++) {
-      if (commentsArr[i].childrenLevel > parentLevel) {
-        removeCount++;
-      } else {
-        break;
-      }
-    }
-
-    commentsArr.splice(index + 1, removeCount);
-
-    setBlog({
-      ...blog,
-      comments: { ...comments, results: [...commentsArr] }
-    });
-
-    return;
-  }
-
-  // ================= LOAD REPLIES =================
-  try {
-    const { data: { replies } } = await axios.post(
-      `${import.meta.env.VITE_SERVER_DOMAIN}/get-replies`,
-      { _id }
-    );
-
-    commentData.isReplyLoaded = true;
-
-    replies.forEach((reply, i) => {
-
-      // ❗ chặn duplicate UI
-      const exists = commentsArr.some(c => c._id === reply._id);
-      if (exists) return;
-
-      reply.childrenLevel = (commentData.childrenLevel || 0) + 1;
-
-      commentsArr.splice(index + 1 + i, 0, reply);
-    });
-
-    setBlog({
-      ...blog,
-      comments: { ...comments, results: [...commentsArr] }
-    });
-
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to load replies");
-  }
-};
-
-
   /* ===================== RENDER ===================== */
   return (
     <div
@@ -187,6 +167,7 @@ const loadReplies = async () => {
             {comment}
           </p>
 
+          {/* nút reply */}
           <div className="flex items-center gap-4 mt-3 text-sm">
             <button
               onClick={handleReplyClick}
@@ -199,16 +180,15 @@ const loadReplies = async () => {
             {(username === commented_by_username ||
               username === blog_author) && (
                 <button
-                  onClick={handleDeleteComment}
-                  disabled={isDeleting}
-                  className="text-gray-500 hover:text-red transition disabled:opacity-50"
+                  onClick={deleteComment}
+                  className="text-gray-500 hover:text-red transition"
                 >
                   <i className="fi fi-rr-trash mr-1"></i>
-                  {isDeleting ? "Deleting..." : "Delete"}
+                  Delete
                 </button>
               )}
           </div>
-
+          {/* nếu là reply thì bật chế độ reply */}
           {isReplying && (
             <div className="mt-4">
               <CommentField
@@ -223,27 +203,20 @@ const loadReplies = async () => {
       </div>
 
       {
-        // Chỉ hiện nút khi có reply
-        children && children.length > 0 && (
+        commentData.isReplyLoaded ?
           <button
+            // Click để ẩn / hiện replies
+            onClick={hideReplies}
+            className="text-dark-grey hover:text-black text-sm font-medium flex items-center gap-2 ml-12 mt-2"
+          >
+            <i className="fi fi-rs-comment-dots"></i>Hide reply
+          </button> : <button
             // Click để ẩn / hiện replies
             onClick={loadReplies}
             className="text-dark-grey hover:text-black text-sm font-medium flex items-center gap-2 ml-12 mt-2"
           >
-            <i
-              className={`fi fi-rr-arrow-small-${commentData.isReplyLoaded ? "up" : "down"}`}></i>
-
-            {
-              // Hiện "Hide" khi đang mở, "View" khi đang ẩn
-              commentData.isReplyLoaded ? "Hide" : "View"
-            }{" "}
-            {children.length}{" "}
-            {
-              // Số ít / số nhiều
-              children.length > 1 ? "Replies" : "Reply"
-            }
+            <i className="fi fi-rs-comment-dots"></i>{children.length} Reply
           </button>
-        )
       }
 
     </div>

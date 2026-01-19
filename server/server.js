@@ -454,278 +454,309 @@ server.post("/isliked-by-user", verifyJWT, (req, res) => {
 });
 
 //thêm comment
-// server.post("/add-comment", verifyJWT, (req, res) => {
-//   // id user lấy từ middleware verifyJWT
-//   let user_id = req.user;
+server.post("/add-comment", verifyJWT, (req, res) => {
+  // id user lấy từ middleware verifyJWT
+  let user_id = req.user;
 
-//   // lấy dữ liệu gửi lên từ client
-//   let { _id, comment, blog_author, replying_to } = req.body;
+  // lấy dữ liệu gửi lên từ client
+  let { _id, comment, blog_author, replying_to } = req.body;
 
-//   // validate comment rỗng
-//   if (!comment.length) {
-//     return res.status(403).json({ error: "Write something to leave" });
-//   }
-
-//   // tạo 1 document comment mới
-//   let commentObj = {
-//     blog_id: _id, // id bài blog
-//     blog_author, // tác giả blog
-//     comment, // nội dung comment
-//     commented_by: user_id, // người comment
-//   };
-//   if (replying_to) {
-//     commentObj.parent = replying_to;
-//   }
-
-//   // lưu comment vào MongoDB
-//   new Comment(commentObj)
-//     .save()
-//     .then(async (commentFile) => {
-//       // destructuring dữ liệu từ document vừa lưu
-//       let { comment, commentedAt, children } = commentFile;
-
-//       // cập nhật blog:
-//       // - push id comment vào mảng comments
-//       // - tăng tổng số comment
-//       // - tăng tổng comment cha
-//       Blog.findOneAndUpdate(
-//         { _id },
-//         {
-//           $push: { comments: commentFile._id },
-//           $inc: {
-//             "activity.total_comments": 1,
-//             "activity.total_parent_comments": replying_to ? 0 : 1,
-//           },
-//         }
-//       ).then(() => {
-//         console.log("New comment created");
-//       });
-
-//       // tạo notification cho tác giả blog
-//       let notificationObj = {
-//         type: replying_to ? "reply" : "comment",
-//         blog: _id, // ❗ sửa "_id" string → biến _id
-//         notification_for: blog_author,
-//         user: user_id,
-//         comment: commentFile._id,
-//       };
-//       if (replying_to) {
-//         notificationObj.replied_on_comment = replying_to;
-//         await Comment.findOneAndUpdate(
-//           { _id: replying_to },
-//           { $push: { children: commentFile._id } }
-//         ).then((replyingToCommentDoc) => {
-//           notificationObj.notification_for = replyingToCommentDoc.commented_by;
-//         });
-//       }
-
-//       new Notification(notificationObj)
-//         .save()
-//         .then(() => console.log("New notification created"));
-
-//       // trả dữ liệu cần thiết cho frontend
-//       return res.status(200).json({
-//         comment,
-//         commentedAt,
-//         _id: commentFile._id,
-//         user_id,
-//         children,
-//         parent: commentFile.parent || null,
-//       });
-//     })
-//     .catch((err) => {
-//       console.error(err);
-//       return res.status(500).json({ error: "Failed to add comment" });
-//     });
-// });
-
-server.post("/add-comment", verifyJWT, async (req, res) => {
-  try {
-    const user_id = req.user;
-    const { _id, comment, blog_author, replying_to } = req.body;
-
-    if (!comment.trim()) {
-      return res.status(403).json({ error: "Write something to leave" });
-    }
-
-    const commentObj = {
-      blog_id: _id,
-      blog_author,
-      comment,
-      commented_by: user_id,
-      parent: replying_to || null // ✅ QUAN TRỌNG
-    };
-
-    const commentFile = await new Comment(commentObj).save();
-
-    // update blog
-    await Blog.findOneAndUpdate(
-      { _id },
-      {
-        $push: { comments: commentFile._id },
-        $inc: {
-          "activity.total_comments": 1,
-          "activity.total_parent_comments": replying_to ? 0 : 1
-        }
-      }
-    );
-
-    // notification
-    let notificationObj = {
-      type: replying_to ? "reply" : "comment",
-      blog: _id,
-      notification_for: blog_author,
-      user: user_id,
-      comment: commentFile._id
-    };
-
-    if (replying_to) {
-      notificationObj.replied_on_comment = replying_to;
-
-      const parentComment = await Comment.findOneAndUpdate(
-        { _id: replying_to },
-        { $push: { children: commentFile._id } },
-        { new: true }
-      );
-
-      notificationObj.notification_for = parentComment.commented_by;
-    }
-
-    await new Notification(notificationObj).save();
-
-    return res.status(200).json({
-      _id: commentFile._id,
-      comment: commentFile.comment,
-      commentedAt: commentFile.commentedAt,
-      parent: commentFile.parent,
-      children: commentFile.children,
-      user_id
-    });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to add comment" });
+  // validate comment rỗng
+  if (!comment.length) {
+    return res.status(403).json({ error: "Write something to leave" });
   }
+
+  // tạo 1 document comment mới
+  let commentObj = {
+    blog_id: _id, // id bài blog
+    blog_author, // tác giả blog
+    comment, // nội dung comment
+    commented_by: user_id, // người comment
+  };
+  if (replying_to) {
+    commentObj.parent = replying_to;
+    commentObj.isReply = true;
+  }
+
+  // lưu comment vào MongoDB
+  new Comment(commentObj).save()
+    .then(async (commentFile) => {
+      // destructuring dữ liệu từ document vừa lưu
+      let { comment, commentedAt, children } = commentFile;
+
+      // cập nhật blog:
+      // - push id comment vào mảng comments
+      // - tăng tổng số comment
+      // - tăng tổng comment cha
+      Blog.findOneAndUpdate(
+        { _id },
+        {
+          $push: { comments: commentFile._id },
+          $inc: {
+            "activity.total_comments": 1,
+            "activity.total_parent_comments": replying_to ? 0 : 1,
+          },
+        }
+      ).then((blog) => {
+        console.log("New comment created");
+      });
+
+      // tạo notification cho tác giả blog
+      let notificationObj = {
+        type: replying_to ? "reply" : "comment",
+        blog: _id, // ❗ sửa "_id" string → biến _id
+        notification_for: blog_author,
+        user: user_id,
+        comment: commentFile._id,
+      }
+
+
+
+      if (replying_to) {
+        notificationObj.replied_on_comment = replying_to;
+        await Comment.findOneAndUpdate(
+          { _id: replying_to },
+          { $push: { children: commentFile._id } }
+        ).then((replyingToCommentDoc) => {
+          notificationObj.notification_for = replyingToCommentDoc.commented_by;
+        });
+      }
+
+      new Notification(notificationObj)
+        .save()
+        .then(() => console.log("New notification created"));
+
+      // trả dữ liệu cần thiết cho frontend
+      return res.status(200).json({
+        comment,
+        commentedAt,
+        _id: commentFile._id,
+        user_id,
+        children,
+        parent: commentFile.parent || null,
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to add comment" });
+    });
 });
+
+// server.post("/add-comment", verifyJWT, async (req, res) => {
+//   try {
+//     const user_id = req.user;
+//     const { _id, comment, blog_author, replying_to } = req.body;
+
+//     if (!comment.trim()) {
+//       return res.status(403).json({ error: "Write something to leave" });
+//     }
+
+//     const commentObj = {
+//       blog_id: _id,
+//       blog_author,
+//       comment,
+//       commented_by: user_id,
+//       parent: replying_to || null // ✅ QUAN TRỌNG
+//     };
+
+//     const commentFile = await new Comment(commentObj).save();
+
+//     // update blog
+//     await Blog.findOneAndUpdate(
+//       { _id },
+//       {
+//         $push: { comments: commentFile._id },
+//         $inc: {
+//           "activity.total_comments": 1,
+//           "activity.total_parent_comments": replying_to ? 0 : 1
+//         }
+//       }
+//     );
+
+//     // notification
+//     let notificationObj = {
+//       type: replying_to ? "reply" : "comment",
+//       blog: _id,
+//       notification_for: blog_author,
+//       user: user_id,
+//       comment: commentFile._id
+//     };
+
+//     if (replying_to) {
+//       notificationObj.replied_on_comment = replying_to;
+
+//       const parentComment = await Comment.findOneAndUpdate(
+//         { _id: replying_to },
+//         { $push: { children: commentFile._id } },
+//         { new: true }
+//       );
+
+//       notificationObj.notification_for = parentComment.commented_by;
+//     }
+
+//     await new Notification(notificationObj).save();
+
+//     return res.status(200).json({
+//       _id: commentFile._id,
+//       comment: commentFile.comment,
+//       commentedAt: commentFile.commentedAt,
+//       parent: commentFile.parent,
+//       children: commentFile.children,
+//       user_id
+//     });
+
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).json({ error: "Failed to add comment" });
+//   }
+// });
 
 
 
 
 //fetching comment children theo parent_id
 server.post("/get-replies", async (req, res) => {
-  try {
-    const { _id, skip = 0 } = req.body;
+  let { _id, skip } = req.body;
+  let maxLimit = 5;
 
-    const replies = await Comment.find({ parent: _id })
-      .sort({ commentedAt: 1 })
-      .skip(skip)
-      .limit(5)
-      .populate(
-        "commented_by",
-        "personal_info.fullname personal_info.username personal_info.profile_img"
-      );
 
-    return res.status(200).json({ replies });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to load replies" });
-  }
+  Comment.findOne({ _id })
+    .populate({
+      path: "children",
+      option: {
+        limit: maxLimit,
+        skip: skip,
+        sort: { commentedAt: -1 }
+      },
+      populate: {
+        path: 'commented_by',
+        select: "personal_info.profile_img personal_info.fullname personal_info.username"
+      },
+      select: "-blog_id -updatedAt"
+    })
+    .select("children")
+    .then(doc => {
+      return res.status(200).json({ replies: doc.children })
+    })
+    .catch(err => {
+      return res.status(500).json({ error: err.message })
+    })
+})
+
+
+// xóa comment
+const deleteComments = (_id) => {
+
+  Comment.findOneAndDelete({ _id })
+    .then(comment => {
+
+      if (comment.parent) {
+        Comment.findOneAndUpdate(
+          { _id: comment.parent },
+          { $pull: { children: _id } }
+        )
+          .then(data => {
+            console.log("comment delete from parent");
+          })
+          .catch(err => {
+            console.log(err);
+          });
+      }
+
+      Notification.findOneAndDelete({ comment: _id })
+        .then(notification => {
+          console.log("comment notification deleted");
+        });
+
+      Notification.findOneAndDelete({ reply: _id })
+        .then(notification => {
+          console.log("reply notification deleted");
+        });
+
+      Blog.findOneAndUpdate(
+        { _id: comment.blog_id },
+        {
+          $pull: { comments: _id },
+          $inc: {
+            "activity.total_comments": -1,
+            "activity.total_parent_comments": comment.parent ? 0 : -1
+          }
+        }
+      )
+        .then(blog => {
+          if (comment.children.length) {
+            comment.children.map(replies => {
+              deleteComments(replies);
+            })
+          }
+        })
+
+    })
+    .catch(err => {
+      console.log(err.message);
+    })
+
+}
+
+server.post("/delete-comment", verifyJWT, (req, res) => {
+
+  let user_id = req.user;
+  let { _id } = req.body;
+
+  // Comment.findOne({ _id })
+  //   .then(comment => {
+
+  //     if (user_id == comment.commented_by || user_id == comment.blog_author) {
+  //       deleteComments(_id);
+  //       return res.status(200).json({ status: "done" });
+  //     } else {
+  //       return res.status(403).json({ error: "You can not delete this comment" });
+  //     }
+
+  //   });
+  Comment.findOne({ _id }).then(comment => {
+
+    if (!comment) {
+      return res.status(404).json({ error: "Comment not found" })
+    }
+
+    if (user_id == comment.commented_by || user_id == comment.blog_author) {
+      deleteComments(_id)
+      return res.status(200).json({ status: 'done' })
+    } else {
+      return res.status(403).json({ error: "You can not delete this comment" })
+    }
+
+  })
+
+
 });
 
-
-server.post("/delete-comment", verifyJWT, async (req, res) => {
-  try {
-    const user_id = req.user;
-    const { _id } = req.body;
-
-    const commentDoc = await Comment.findOne({ _id });
-    if (!commentDoc) {
-      return res.status(404).json({ error: "Comment not found" });
-    }
-
-    if (
-      commentDoc.commented_by.toString() !== user_id &&
-      commentDoc.blog_author.toString() !== user_id
-    ) {
-      return res.status(403).json({ error: "Unauthorized" });
-    }
-
-    // ✅ nếu là reply → gỡ khỏi children của parent
-    if (commentDoc.parent) {
-      await Comment.findOneAndUpdate(
-        { _id: commentDoc.parent },
-        { $pull: { children: new mongoose.Types.ObjectId(_id) } }
-      );
-    }
-
-    await Comment.findOneAndDelete({ _id });
-    await Notification.deleteMany({ comment: _id });
-
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: "Failed to delete comment" });
-  }
-});
-
-
-
-// fetching comment
-// server.post("/get_blog_comments", (req, res) => {
-//   // lấy blog_id và số comment cần bỏ qua
-//   let { blog_id, skip } = req.body;
-
-//   // số comment tối đa mỗi lần fetch
-//   let maxLimit = 5;
-
-//   Comment.find({
-//     blog_id, // comment thuộc blog này
-//     isReply: false, // chỉ lấy comment cha
-//   })
-//     // lấy thông tin user đã comment
-//     .populate(
-//       "commented_by",
-//       "personal_info.username personal_info.fullname personal_info.profile_img"
-//     )
-//     // bỏ qua 'skip' comment
-//     .skip(skip)
-//     // giới hạn số lượng comment
-//     .limit(maxLimit)
-//     // sắp xếp comment mới nhất lên trước
-//     .sort({ commentedAt: -1 })
-//     .then((comment) => {
-//       // trả comment về frontend
-//       return res.status(200).json(comment);
-//     })
-//     .catch((err) => {
-//       // lỗi server
-//       return res.status(500).json({ error: err.message });
-//     });
-// });
 
 
 server.post("/get_blog_comments", async (req, res) => {
-  try {
-    const { blog_id, skip = 0 } = req.body;
-    const limit = 5;
 
-    const comments = await Comment.find({
-      blog_id,
-      parent: null // ✅ CHỈ LẤY COMMENT CHA
+  let { blog_id, skip = 0 } = req.body;
+  let limit = 5;
+
+  Comment.find({
+    blog_id,
+    isReply: false // ✅ CHỈ LẤY COMMENT CHA
+  })
+    .populate(
+      "commented_by",
+      "personal_info.username personal_info.fullname personal_info.profile_img"
+    ).sort({ 'commentedAt': -1 })
+    .skip(skip)
+    .limit(limit)
+    .then(comment => {
+      return res.status(200).json(comment);
     })
-      .populate(
-        "commented_by",
-        "personal_info.username personal_info.fullname personal_info.profile_img"
-      )
-      .sort({ commentedAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    return res.status(200).json(comments);
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-});
+    .catch(err => {
+      console.log(err.message);
+      return res.status(500).json({ error: err.message })
+    })
+})
 
 
 

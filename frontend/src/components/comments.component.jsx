@@ -9,21 +9,13 @@ import CommentCard from "./comment-card.component";
 
 /// Hàm lấy dữ liệu bình luận từ server
 export const fetchComments = async ({ skip = 0, blog_id, setParentCommentCountFun, comment_array = null }) => {
-    let res; // biến để lưu kết quả (không dùng trực tiếp trong đoạn này, có thể để mở rộng sau)
-
-    // Gửi yêu cầu POST đến server để lấy danh sách bình luận
+    let res; 
     await axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/get_blog_comments`, { blog_id, skip })
         .then(({ data }) => {
-            // Duyệt qua từng bình luận trong dữ liệu trả về
-            data.forEach(comment => {
-                // Thêm thuộc tính 'childrenLevel' với giá trị 0, để đánh dấu là bình luận cha
+            data.map(comment => {
                 comment.childrenLevel = 0;
-            });
-
-            // Cập nhật số lượng bình luận cha (không kể bình luận con)
+            })
             setParentCommentCountFun(preVal => preVal + data.length);
-
-            // Nếu không có bình luận cũ (comment_array), chỉ lấy dữ liệu mới
             if (comment_array == null) {
                 res = { results: data }; // kết quả chỉ gồm bình luận mới
             } else {
@@ -38,7 +30,6 @@ export const fetchComments = async ({ skip = 0, blog_id, setParentCommentCountFu
 
     return res;
 }
-
 
 
 const CommentsContainer = () => {
