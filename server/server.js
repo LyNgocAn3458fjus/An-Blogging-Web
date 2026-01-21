@@ -644,92 +644,72 @@ server.post("/get-replies", async (req, res) => {
 })
 
 
-// xóa comment
-const deleteComments = (_id) => {
+const deleteComments = async (_id) => {
+  try {
+    const comment = await Comment.findOneAndDelete({ _id });
+    if (!comment) return;
 
-  Comment.findOneAndDelete({ _id })
-    .then(comment => {
+    // 1️⃣ Remove khỏi parent nếu là reply
+    if (comment.parent) {
+      await Comment.findOneAndUpdate(
+        { _id: comment.parent },
+        { $pull: { children: _id } }
+      );
+    }
 
-      if (comment.parent) {
-        Comment.findOneAndUpdate(
-          { _id: comment.parent },
-          { $pull: { children: _id } }
-        )
-          .then(data => {
-            console.log("comment delete from parent");
-          })
-          .catch(err => {
-            console.log(err);
-          });
-      }
+    // 2️⃣ Xoá notification liên quan
+    await Notification.deleteMany({
+      $or: [{ comment: _id }, { reply: _id }]
+    });
 
-      Notification.findOneAndDelete({ comment: _id })
-        .then(notification => {
-          console.log("comment notification deleted");
-        });
-
-      Notification.findOneAndDelete({ reply: _id })
-        .then(notification => {
-          console.log("reply notification deleted");
-        });
-
-      Blog.findOneAndUpdate(
-        { _id: comment.blog_id },
-        {
-          $pull: { comments: _id },
-          $inc: {
-            "activity.total_comments": -1,
-            "activity.total_parent_comments": comment.parent ? 0 : -1
-          }
+    // 3️⃣ Update blog
+    await Blog.findOneAndUpdate(
+      { _id: comment.blog_id },
+      {
+        $pull: { comments: _id },
+        $inc: {
+          "activity.total_comments": -1,
+          "activity.total_parent_comments": comment.parent ? 0 : -1
         }
-      )
-        .then(blog => {
-          if (comment.children.length) {
-            comment.children.map(replies => {
-              deleteComments(replies);
-            })
-          }
-        })
+      }
+    );
 
-    })
-    .catch(err => {
-      console.log(err.message);
-    })
+    // 4️⃣ Xoá reply (đệ quy – có kiểm soát)
+    if (comment.children && comment.children.length) {
+      for (const replyId of comment.children) {
+        await deleteComments(replyId);
+      }
+    }
 
-}
+  } catch (err) {
+    console.error("Delete comment error:", err.message);
+  }
+};
 
-server.post("/delete-comment", verifyJWT, (req, res) => {
 
-  let user_id = req.user;
-  let { _id } = req.body;
+server.post("/delete-comment", verifyJWT, async (req, res) => {
+  try {
+    const user_id = req.user;
+    const { _id } = req.body;
 
-  // Comment.findOne({ _id })
-  //   .then(comment => {
-
-  //     if (user_id == comment.commented_by || user_id == comment.blog_author) {
-  //       deleteComments(_id);
-  //       return res.status(200).json({ status: "done" });
-  //     } else {
-  //       return res.status(403).json({ error: "You can not delete this comment" });
-  //     }
-
-  //   });
-  Comment.findOne({ _id }).then(comment => {
-
+    const comment = await Comment.findOne({ _id });
     if (!comment) {
-      return res.status(404).json({ error: "Comment not found" })
+      return res.status(404).json({ error: "Comment not found" });
     }
 
-    if (user_id == comment.commented_by || user_id == comment.blog_author) {
-      deleteComments(_id)
-      return res.status(200).json({ status: 'done' })
-    } else {
-      return res.status(403).json({ error: "You can not delete this comment" })
+    if (
+      user_id == comment.commented_by ||
+      user_id == comment.blog_author
+    ) {
+      await deleteComments(_id);
+      return res.status(200).json({ status: "done" });
     }
 
-  })
+    return res.status(403).json({ error: "You can not delete this comment" });
 
-
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 

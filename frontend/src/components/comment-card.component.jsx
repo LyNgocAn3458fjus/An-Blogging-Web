@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useCallback } from "react";
 import { BlogContext } from "../pages/blog.page";
 import { UserContext } from "../App";
 import { toast } from "react-hot-toast";
@@ -6,144 +6,176 @@ import CommentField from "./comment-field.component";
 import { getDay } from "../common/date";
 import axios from "axios";
 
-// Component hiển thị 1 comment (cha hoặc con)
 const CommentCard = ({ index, leftVal, commentData }) => {
-
-  /* ===================== COMMENT DATA ===================== */
-  let {
+  /* ===================== DATA ===================== */
+  const {
     commented_by: {
-      personal_info: {
-        fullname,
-        username: commented_by_username,
-        profile_img
-      }
+      personal_info: { fullname, username: commented_by_username, profile_img }
     },
     commentedAt,
     comment,
     _id,
-    children
+    children = [],
+    childrenLevel = 0
   } = commentData;
-  /* ===================== BLOG CONTEXT ===================== */
-  // let { blog,
-  //   blog: { comments, activity: { total_parent_comments }, comments: { results: commentsArr }, author: { personal_info: { username: blog_author } } }, setBlog, setTotalParentCommentsLoaded } = useContext(BlogContext);
 
-let {
-  blog,
-  blog: {
-    comments,
-    comments: { results: commentsArr },
-    activity,
-    activity: { total_parent_comments },
-    author: { personal_info: { username: blog_author } }
-  },
-  setBlog,
-  setTotalParentCommentsLoaded
-} = useContext(BlogContext);
+  const {
+    blog,
+    blog: {
+      comments: { results },
+      activity,
+      author: { personal_info: { username: blog_author } }
+    },
+    setBlog
+  } = useContext(BlogContext);
 
+  const { userAuth: { access_token, username } } = useContext(UserContext);
 
-  /* ===================== USER CONTEXT ===================== */
-  let { userAuth: { access_token, username } } = useContext(UserContext);
   /* ===================== LOCAL STATE ===================== */
   const [isReplying, setReplying] = useState(false);
-  const getParentIndex = () => {
-    let startingPoint = index - 1;
-    try {
-      while (commentsArr[startingPoint].childrenLevel > commentData.childrenLevel) {
-        startingPoint--;
-      }
-    }
-    catch {
-      startingPoint = undefined;
-    }
-    return startingPoint;
-  }
+  const [isReplyLoaded, setIsReplyLoaded] = useState(false);
+  const [isLoadingReplies, setIsLoadingReplies] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  /* ===================== REPLY ===================== */
-  const removeCommentsCard = (startingPoint, isDelete = false) => {
-    if (commentsArr[startingPoint]) {
-      while (commentsArr[startingPoint].childrenLevel > commentData.childrenLevel) {
-        commentsArr.splice(startingPoint, 1);
-        if (!commentsArr[startingPoint]) {
-          break;
+  /* ======================================================
+     UI ONLY – HIDE REPLIES (NO COUNTER CHANGE)
+  ====================================================== */
+  const hideReplies = useCallback(() => {
+    setBlog(prev => {
+      const list = [...prev.comments.results];
+      let ptr = index + 1;
+
+      while (list[ptr] && list[ptr].childrenLevel > childrenLevel) {
+        list.splice(ptr, 1);
+      }
+
+      return {
+        ...prev,
+        comments: { ...prev.comments, results: list }
+      };
+    });
+
+    setIsReplyLoaded(false);
+  }, [setBlog, index, childrenLevel]);
+
+  /* ======================================================
+     DELETE COMMENT – FULL LOGIC + COUNTERS
+  ====================================================== */
+  const deleteFromState = useCallback(() => {
+    setBlog(prev => {
+      const list = [...prev.comments.results];
+      let deleteCount = 0;
+      let ptr = index + 1;
+
+      /* 1️⃣ Remove all child replies */
+      while (list[ptr] && list[ptr].childrenLevel > childrenLevel) {
+        list.splice(ptr, 1);
+        deleteCount++;
+      }
+
+      /* 2️⃣ Remove the comment itself */
+      list.splice(index, 1);
+      deleteCount++;
+
+      /* 3️⃣ Update parent.children if this is a reply */
+      if (childrenLevel > 0) {
+        const parentIndex = list.findIndex(c =>
+          c.children?.includes(_id)
+        );
+
+        if (parentIndex !== -1) {
+          list[parentIndex] = {
+            ...list[parentIndex],
+            children: list[parentIndex].children.filter(id => id !== _id)
+          };
         }
       }
-    }
 
-    if (isDelete) {
-      let parentIndex = getParentIndex();
-      if (parentIndex !== undefined) {
-        commentsArr[parentIndex].children = commentsArr[parentIndex].children.filter(child => child !== _id)
-        if (!commentsArr[parentIndex].children.length) {
-          commentsArr[parentIndex].isReplyLoaded = false;
+      return {
+        ...prev,
+        comments: { ...prev.comments, results: list },
+        activity: {
+          ...prev.activity,
+          total_comments: prev.activity.total_comments - deleteCount,
+          total_parent_comments:
+            prev.activity.total_parent_comments -
+            (childrenLevel === 0 ? 1 : 0)
         }
-      }
-      commentsArr.splice(index, 1);
-    }
-    if (commentData.childrenLevel == 0 && isDelete) {
-      setTotalParentCommentsLoaded(preVal => preVal - 1)
-    }
-    setBlog({
-  ...blog,
-  comments: { results: commentsArr },
-  activity: {
-    ...activity,
-    total_comments: activity.total_comments - 1,
-    total_parent_comments:
-      total_parent_comments -
-      (commentData.childrenLevel === 0 && isDelete ? 1 : 0)
-  }
-})
+      };
+    });
+  }, [setBlog, index, childrenLevel, _id]);
 
-  }
+  /* ======================================================
+     LOAD REPLIES
+  ====================================================== */
+  const loadReplies = async () => {
+    if (!children.length) return;
 
-  const loadReplies = ({ skip = 0 }) => {
-    if (children.length) {
+    if (isReplyLoaded) {
       hideReplies();
-      axios.post(`${import.meta.env.VITE_SERVER_DOMAIN}/get-replies`, { _id, skip })
-        .then(({ data: { replies } }) => {
-          commentData.isReplyLoaded = true;
-          for (let i = 0; i < replies.length; i++) {
-            replies[i].childrenLevel = commentData.childrenLevel + 1;
-            commentsArr.splice(index + 1 + i + skip, 0, replies[i])
-          }
-          setBlog({ ...blog, comments: { ...comments, results: commentsArr } })
-        })
-        .catch(err => {
-          console.log(err)
-        })
+      return;
     }
-  }
 
-  const hideReplies = () => {
-    commentData.isReplyLoaded = false;
-    removeCommentsCard(index + 1)
-  }
+    setIsLoadingReplies(true);
 
+    try {
+      const { data: { replies } } = await axios.post(
+        `${import.meta.env.VITE_SERVER_DOMAIN}/get-replies`,
+        { _id }
+      );
 
-  const handleReplyClick = () => {
-    if (!access_token) {
-      return toast.error("Please log in to reply");
+      setBlog(prev => {
+        const list = [...prev.comments.results];
+        const withLevel = replies.map(r => ({
+          ...r,
+          childrenLevel: childrenLevel + 1
+        }));
+
+        list.splice(index + 1, 0, ...withLevel);
+
+        return {
+          ...prev,
+          comments: { ...prev.comments, results: list }
+        };
+      });
+
+      setIsReplyLoaded(true);
+    } catch {
+      toast.error("Failed to load replies");
+    } finally {
+      setIsLoadingReplies(false);
     }
-    setReplying(preVal => !preVal);
   };
 
-  const deleteComment = (e) => {
-    e.target.setAttribute("disabled", true);
-    axios.post(import.meta.env.VITE_SERVER_DOMAIN + "/delete-comment", { _id },
-      {
-        headers: {
-          Authorization: `Bearer ${access_token}`
-        }
-      })
-      .then(() => {
-        e.target.removeAttribute("disabled");
-        removeCommentsCard(index + 1, true);// mới thêm vô có thể sai 
-      })
-      .catch(err => {
-        console.log(err)
-      })
+  /* ======================================================
+     DELETE COMMENT (API)
+  ====================================================== */
+  const deleteComment = async () => {
+    if (isDeleting) return;
+    if (!window.confirm("Delete this comment?")) return;
+
+    setIsDeleting(true);
+
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_SERVER_DOMAIN}/delete-comment`,
+        { _id },
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+
+      deleteFromState();
+      toast.success("Comment deleted");
+    } catch {
+      toast.error("Delete failed");
+    } finally {
+      setIsDeleting(false);
+    }
   };
+
   /* ===================== RENDER ===================== */
+  const canDelete =
+    username === commented_by_username || username === blog_author;
+
   return (
     <div
       className="border-l-2 border-gray-100"
@@ -152,73 +184,57 @@ let {
       <div className="flex gap-3 mb-3">
         <img
           src={profile_img}
+          className="w-10 h-10 rounded-full"
           alt={fullname}
-          className="w-10 h-10 rounded-full object-cover"
         />
 
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-medium text-gray-900">{fullname}</p>
-            <p className="text-sm text-gray-500">@{commented_by_username}</p>
-            <p className="text-xs text-gray-400">{getDay(commentedAt)}</p>
+          <div className="flex gap-2 text-sm text-gray-500">
+            <b className="text-gray-900">{fullname}</b>
+            @{commented_by_username}
+            <span>{getDay(commentedAt)}</span>
           </div>
 
-          <p className="text-gray-700 text-sm leading-relaxed">
-            {comment}
-          </p>
+          <p className="text-sm text-gray-700 mt-1">{comment}</p>
 
-          {/* nút reply */}
-          <div className="flex items-center gap-4 mt-3 text-sm">
-            <button
-              onClick={handleReplyClick}
-              className="text-gray-500 hover:text-purple transition"
-            >
-              <i className="fi fi-rr-comment-dots mr-1"></i>
-              Reply
-            </button>
+          <div className="flex gap-4 mt-2 text-sm">
+            <button onClick={() => setReplying(v => !v)}>Reply</button>
 
-            {(username === commented_by_username ||
-              username === blog_author) && (
-                <button
-                  onClick={deleteComment}
-                  className="text-gray-500 hover:text-red transition"
-                >
-                  <i className="fi fi-rr-trash mr-1"></i>
-                  Delete
-                </button>
-              )}
+            {canDelete && (
+              <button
+                onClick={deleteComment}
+                disabled={isDeleting}
+                className="text-red-500"
+              >
+                {isDeleting ? "Deleting…" : "Delete"}
+              </button>
+            )}
           </div>
-          {/* nếu là reply thì bật chế độ reply */}
+
           {isReplying && (
-            <div className="mt-4">
-              <CommentField
-                action="Reply"
-                index={index}
-                replyingTo={_id}
-                setReplying={setReplying}
-              />
-            </div>
+            <CommentField
+              action="Reply"
+              index={index}
+              replyingTo={_id}
+              setReplying={setReplying}
+            />
           )}
         </div>
       </div>
 
-      {
-        commentData.isReplyLoaded ?
-          <button
-            // Click để ẩn / hiện replies
-            onClick={hideReplies}
-            className="text-dark-grey hover:text-black text-sm font-medium flex items-center gap-2 ml-12 mt-2"
-          >
-            <i className="fi fi-rs-comment-dots"></i>Hide reply
-          </button> : <button
-            // Click để ẩn / hiện replies
-            onClick={loadReplies}
-            className="text-dark-grey hover:text-black text-sm font-medium flex items-center gap-2 ml-12 mt-2"
-          >
-            <i className="fi fi-rs-comment-dots"></i>{children.length} Reply
-          </button>
-      }
-
+      {children.length > 0 && (
+        <button
+          onClick={loadReplies}
+          disabled={isLoadingReplies}
+          className="ml-12 text-sm text-gray-500"
+        >
+          {isLoadingReplies
+            ? "Loading…"
+            : isReplyLoaded
+              ? "Hide replies"
+              : `${children.length} replies`}
+        </button>
+      )}
     </div>
   );
 };
