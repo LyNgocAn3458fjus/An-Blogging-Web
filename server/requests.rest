@@ -1,0 +1,25 @@
+# POST http://localhost:3000/change-password
+# Content-Type: application/json
+# Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NzVkMDNiNDY0NWE2ZWY5ZTBkM2UzOSIsImlhdCI6MTc2OTY3NTgzOSwiZXhwIjoxNzY5Njc5NDM5fQ.O1bZWHbPq8qAbAr_eZXgDbFqEeM8cCa-GsqR06u-qks  
+
+# {
+#      "currentPassword":"Qwe970011",
+#      "newPassword":"Qwe970011@"
+# }
+
+POST http://localhost:3000/user-written-blogs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5NzVkMDNiNDY0NWE2ZWY5ZTBkM2UzOSIsImlhdCI6MTc3MDE5MzgxOSwiZXhwIjoxNzcwMTk3NDE5fQ.UnEVRS7We6N5Lz7wdPyXxqap9EbDoiKuyKioGn_vcFY
+Content-Type: application/json
+
+{
+  "page": 1,
+  "draft":false
+}
+
+# POST http://localhost:3000/signin
+# Content-Type: application/json
+
+# {
+#      "email":"nmk2003@gmail.com",
+#      "password":"Qwe970011@"
+# }
